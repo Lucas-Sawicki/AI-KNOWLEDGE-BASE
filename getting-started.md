@@ -1,3 +1,7 @@
+---
+title: Getting started
+---
+
 # Getting started
 
 
@@ -22,7 +26,7 @@ Welcome to **contextrepo**, a small example documentation site powered by Docs7.
 
 
 
-Continue with the [documentation overview](guides/overview) to explore the sample structure.
+Continue with the [documentation overview](guides/overview.md/overview) to explore the sample structure.
 
 
 

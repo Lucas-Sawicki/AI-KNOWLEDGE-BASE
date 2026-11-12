@@ -10,6 +10,8 @@
       {
         "group": "Start",
         "pages": [
+          "getting-started",
+          "guides/overview.md/overview",
           "projects/index",
           "knowledge/index",
           "standards/index",

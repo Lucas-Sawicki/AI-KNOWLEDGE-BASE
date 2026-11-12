@@ -1,3 +1,7 @@
+---
+title: AGENTS.md
+hidden: true
+---
 
 # AGENTS.md
 # Centralny system projektów AI — Manus
@@ -57,10 +61,12 @@ Dostępne narzędzia:
 
 resolve-library-id wymaga dwóch argumentów:
 
+```json
 {
   "libraryName": "PyTorch",
   "query": "CUDA memory management and GPU optimization"
 }
+```
 
 Zawsze przekazuj oba pola.
 
