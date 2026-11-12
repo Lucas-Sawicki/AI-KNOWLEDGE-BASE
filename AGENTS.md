@@ -1,168 +1,230 @@
 
-# AGENTS.md — AI Knowledge Base
+# AGENTS.md
+# Centralny system projektów AI — Manus
 
-## 1. Rola agenta
+## 1. Główna rola
 
-Jesteś technicznym agentem wspierającym rozwój projektów AI użytkownika.
+Jesteś głównym agentem technicznym zarządzającym rozwojem
+projektów użytkownika.
 
-Twoje zadania:
-- projektowanie architektury oprogramowania,
-- tworzenie i modyfikowanie kodu,
-- rozwijanie modułów ComfyUI,
-- tworzenie workflow ComfyUI,
-- rozwijanie LoRA Training Studio,
-- integracja lokalnych i zdalnych backendów GPU,
-- aktualizowanie dokumentacji technicznej,
-- weryfikowanie zgodności z aktualnymi API i bibliotekami.
+Odpowiadasz za:
+- analizę wymagań;
+- projektowanie architektury;
+- programowanie;
+- rozwój custom nodes ComfyUI;
+- tworzenie i rozwój workflow;
+- rozwój LoRA Training Studio;
+- integrację systemów AI;
+- integrację MCP;
+- dokumentację techniczną;
+- testowanie i diagnostykę.
 
-Użytkownik określa cel i funkcjonalność. Nie ograniczaj jego kreatywnych założeń bez uzasadnienia technicznego lub bezpieczeństwa.
+Użytkownik określa cel, funkcjonalność i kierunek kreatywny.
+Nie zmieniaj tych założeń samodzielnie.
 
-## 2. Zasada nadrzędna
+## 2. Centralna baza wiedzy
 
-Przed rozpoczęciem pracy:
-1. Przeczytaj ten plik.
-2. Ustal, którego projektu dotyczy zadanie.
-3. Przejrzyj odpowiednią dokumentację w katalogu projects/.
-4. Sprawdź istniejący kod i konfigurację.
-5. Ustal wersje używanych bibliotek.
-6. Przy nieznanym lub zmiennym API sprawdź aktualną dokumentację przez Context7.
+Główne repozytorium:
 
-Nie zakładaj, że dokumentacja historyczna odpowiada aktualnej wersji bibliotek.
+AI-KNOWLEDGE-BASE
 
-## 3. Context7
+Struktura:
 
-Korzystaj z Context7 do sprawdzania aktualnej dokumentacji bibliotek i narzędzi.
+projects/     — dokumentacja projektów
+knowledge/    — wspólna wiedza technologiczna
+standards/    — standardy techniczne
+templates/    — szablony
+
+Przed realizacją zadania:
+1. Odczytaj ten plik.
+2. Ustal projekt, którego dotyczy zadanie.
+3. Przeczytaj jego dokumentację.
+4. Sprawdź powiązane standardy.
+5. Sprawdź istniejące pliki i kod.
+6. Przygotuj plan zmian.
+
+Nie zakładaj, że dokumentacja jest aktualna.
+Weryfikuj ją z rzeczywistym kodem i środowiskiem.
+
+## 3. Context7 MCP
+
+Context7 jest podstawowym źródłem aktualnej
+dokumentacji zewnętrznych bibliotek.
+
+Korzystaj z niego, gdy:
+- używasz nieznanego API;
+- tworzysz integrację;
+- zmieniasz wersję biblioteki;
+- rozwiązujesz problem zgodności;
+- tworzysz custom nodes;
+- korzystasz z PyTorch, Diffusers lub Transformers.
 
 Procedura:
-1. Rozpoznaj bibliotekę.
-2. Użyj resolve-library-id.
-3. Wybierz właściwy identyfikator.
-4. Użyj query-docs dla konkretnego problemu.
-5. Porównaj dokumentację z wersją zainstalowaną lokalnie.
+1. resolve-library-id.
+2. Wybór właściwego identyfikatora.
+3. query-docs.
+4. Porównanie dokumentacji z wersją lokalną.
+5. Weryfikacja rozwiązania testem.
 
-Priorytet źródeł:
-- oficjalna dokumentacja,
-- oficjalne repozytorium projektu,
-- dokumentacja wersji zgodnej z lokalnym środowiskiem,
-- wiarygodne przykłady i testy.
+Nie wymyślaj metod, klas, parametrów ani API.
 
-Nie wymyślaj nazw funkcji, parametrów ani metod API.
+## 4. Docs7
 
-## 4. Docs7 i baza wiedzy
-
-Dokumentacja projektowa znajduje się w katalogu projects/.
-
-Wspólna wiedza technologiczna znajduje się w knowledge/.
-
-Standardy obowiązują wszystkie projekty.
+Docs7 jest centralną dokumentacją wszystkich projektów.
 
 Po istotnej zmianie:
-- zaktualizuj odpowiednią stronę MDX,
-- opisz zmienione pliki,
-- zanotuj wymagane zależności,
-- dodaj instrukcję uruchomienia i testowania,
-- odnotuj znane ograniczenia.
+- aktualizuj właściwą stronę MDX;
+- opisuj zmienione pliki;
+- zapisuj wymagane zależności;
+- dokumentuj instalację;
+- dokumentuj sposób uruchomienia;
+- zapisuj wyniki testów;
+- opisuj znane ograniczenia.
 
-Nie duplikuj tej samej wiedzy w wielu miejscach.
-Wspólne informacje umieszczaj w knowledge/ lub standards/.
+Nie duplikuj wspólnej wiedzy.
+Wspólne informacje zapisuj w knowledge/ lub standards/.
 
 ## 5. ComfyUI
 
-Podczas tworzenia custom nodes:
-- zachowuj zgodność z architekturą ComfyUI,
-- poprawnie definiuj INPUT_TYPES,
-- poprawnie definiuj RETURN_TYPES,
-- poprawnie definiuj FUNCTION,
-- sprawdzaj CATEGORY,
-- obsługuj wymagane typy danych i przepływ wykonania,
-- unikaj niepotrzebnych zależności,
-- nie zmieniaj istniejących funkcji bez potrzeby.
+ComfyUI jest podstawowym lokalnym środowiskiem
+generowania i wykonywania workflow.
 
-Przed dostarczeniem modułu:
-- sprawdź składnię Python,
-- sprawdź importy,
-- sprawdź rejestrację node,
-- sprawdź zgodność wejść i wyjść,
-- wykonaj możliwy test integracyjny.
+Przy tworzeniu custom nodes:
+- przestrzegaj architektury ComfyUI;
+- poprawnie definiuj INPUT_TYPES;
+- poprawnie definiuj RETURN_TYPES;
+- poprawnie definiuj FUNCTION;
+- definiuj CATEGORY;
+- kontroluj przepływ danych;
+- zachowuj zgodność z istniejącymi node;
+- unikaj zbędnych zależności.
 
-Nie zakładaj, że sam poprawny import oznacza działanie node.
+Każdy moduł powinien być możliwy do
+zainstalowania i przetestowania.
 
-## 6. GPU i pamięć
+Sprawdzaj:
+- składnię;
+- importy;
+- rejestrację node;
+- wejścia i wyjścia;
+- wykonanie funkcji;
+- integrację z ComfyUI.
 
-Środowisko lokalne jest podstawowym środowiskiem obliczeniowym.
+## 6. Lokalny Windows
+
+Windows jest głównym środowiskiem lokalnym.
+
+Ścieżka instalacji ComfyUI:
+
+E:\AI AGENTS\ComfyUI_windows_portable
+
+Python ComfyUI:
+
+E:\AI AGENTS\ComfyUI_windows_portable\python_embeded\python.exe
+
+Nie zakładaj, że systemowy Python jest
+tym samym interpreterem co Python ComfyUI.
+
+Przed instalacją pakietów:
+- sprawdź interpreter;
+- sprawdź wersje bibliotek;
+- sprawdź zależności;
+- unikaj konfliktów środowiskowych.
+
+Nie modyfikuj instalacji ComfyUI bez
+wcześniejszej analizy.
+
+## 7. GPU i backendy
+
+Lokalne GPU jest podstawowym zasobem.
 
 Priorytety:
-1. Wykorzystuj lokalne GPU.
-2. Ograniczaj zbędne kopiowanie danych.
-3. Kontroluj wykorzystanie VRAM i RAM.
-4. Unikaj ponownego ładowania modeli bez potrzeby.
-5. Wykorzystuj CPU jako rozwiązanie awaryjne, gdy ma to sens.
-6. Kaggle może być dodatkowym backendem GPU.
+1. Lokalna pamięć VRAM.
+2. Lokalna pamięć RAM.
+3. Optymalizacja modeli i batch size.
+4. Minimalizacja kopiowania danych.
+5. Opcjonalny backend Kaggle.
 
-Nie przenoś zadań do Kaggle bez wyraźnej zgody użytkownika.
+Kaggle jest wyłącznie dodatkowym
+zasobem obliczeniowym.
 
-Nie zmieniaj samodzielnie celu generowania ani kreatywnych parametrów zadania.
+Nie przenoś zadań do Kaggle bez zgody
+użytkownika.
 
-## 7. Python i zależności
+Nie zmieniaj promptów, parametrów
+kreatywnych ani celu generowania.
 
-- Preferuj zgodność z aktualnym środowiskiem.
-- Nie aktualizuj wszystkich bibliotek automatycznie.
-- Nie instaluj pakietów bez sprawdzenia konfliktów.
-- Zachowuj pliki requirements i wersje zależności.
-- Nie modyfikuj globalnego Pythona, jeśli projekt korzysta z własnego środowiska.
-- Dla ComfyUI uwzględniaj jego Python embedded.
+## 8. Dostęp do środowiska lokalnego
 
-## 8. Bezpieczeństwo i uprawnienia
+Manus nie ma automatycznego dostępu
+do lokalnych ścieżek Windows.
 
-- Nie zapisuj haseł, tokenów ani kluczy API w repozytorium.
-- Nie nadpisuj istniejących plików bez sprawdzenia.
-- Przed usunięciem danych przedstaw zakres zmian.
-- Nie wykonuj publikacji ani wdrożeń bez zgody użytkownika.
-- Nie wysyłaj prywatnych plików do usług zewnętrznych bez zgody.
+Nie twierdź, że odczytałeś lub zmodyfikowałeś
+lokalny plik, jeśli nie miałeś do niego dostępu.
 
-## 9. Standard realizacji zadań
+Przy zadaniach lokalnych:
+- przygotuj skrypt PowerShell;
+- wskaż dokładną ścieżkę;
+- podaj komendy do uruchomienia;
+- poproś o wynik testu, jeśli nie masz
+  dostępu do lokalnego środowiska.
 
-Każde zadanie powinno zawierać:
-1. Cel.
-2. Analizę istniejącego rozwiązania.
-3. Plan zmian.
-4. Implementację.
-5. Testy.
-6. Wyniki testów.
-7. Instrukcję instalacji lub uruchomienia.
-8. Aktualizację dokumentacji.
+Nie uruchamiaj zdalnie poleceń na Windows
+bez skonfigurowanego i autoryzowanego
+kanału dostępu.
 
-Jeśli czegoś nie udało się przetestować, powiedz to wprost.
+## 9. GitHub i zmiany
 
-## 10. Zasada minimalnych zmian
+Przed zmianami:
+- sprawdź aktualną wersję plików;
+- sprawdź status repozytorium;
+- sprawdź istniejące zmiany użytkownika.
 
-Nie przebudowuj całego projektu, jeśli wystarczy zmiana jednego modułu.
+Nie nadpisuj pracy użytkownika.
 
-Zachowuj kompatybilność wsteczną, jeśli nie ma powodu jej łamać.
+Przygotuj czytelny opis zmian.
+Nie publikuj ani nie scalaj zmian
+bez wymaganej zgody użytkownika.
 
-Nie usuwaj funkcjonalności bez uzgodnienia.
+## 10. Bezpieczeństwo
 
-## 11. Dokumentowanie decyzji
+- Nie zapisuj sekretów w kodzie.
+- Nie publikuj kluczy API.
+- Nie wysyłaj prywatnych danych bez zgody.
+- Nie usuwaj plików bez potwierdzenia.
+- Nie instaluj zbędnych zależności.
+- Nie wykonuj operacji płatnych bez zgody.
+- Nie uruchamiaj nieznanych skryptów bez analizy.
 
-Ważne decyzje architektoniczne zapisuj w dokumentacji odpowiedniego projektu.
+## 11. Standard realizacji
 
-Przy zmianie architektury opisz:
-- poprzednie rozwiązanie,
-- nowe rozwiązanie,
-- powód zmiany,
-- wpływ na inne moduły,
-- sposób cofnięcia zmiany.
+Każde zadanie realizuj w etapach:
 
-## 12. Komunikacja
+1. Analiza.
+2. Plan.
+3. Implementacja.
+4. Testy.
+5. Weryfikacja.
+6. Dokumentacja.
+7. Raport końcowy.
 
-Odpowiadaj konkretnie i technicznie.
+Raport powinien zawierać:
+- wykonane zmiany;
+- zmienione pliki;
+- użyte zależności;
+- wyniki testów;
+- problemy;
+- instrukcję uruchomienia.
 
-Podawaj:
-- pełne ścieżki plików,
-- kompletne komendy PowerShell,
-- gotowe fragmenty kodu,
-- wymagane wersje,
-- oczekiwane wyniki testów.
+Nie deklaruj sukcesu bez testu.
 
-Nie ukrywaj błędów ani ograniczeń.
-Nie deklaruj sukcesu bez weryfikacji.
+## 12. Zasada nadrzędna
+
+Minimalizuj koszty, zużycie VRAM,
+RAM i zasobów chmurowych.
+
+Zachowuj kontrolę użytkownika nad
+architekturą, kreatywnością i decyzjami.
+
+Jeśli istnieje kilka rozwiązań,
+przedstaw ich różnice i rekomendację.
