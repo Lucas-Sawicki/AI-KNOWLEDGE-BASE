@@ -14,19 +14,25 @@
     
   },
   
-  "navigation": [
+  "navigation": {
     
-    {
+    "groups": [
       
-      "group": "Documentation",
+      {
+        
+        "group": "Documentation",
+        
+        "pages": ["README"]
+        
+      }
       
-      "pages": ["README"]
-      
-    }
+    ]
     
-  ]
+  }
   
 }
+
+
 
 
 
