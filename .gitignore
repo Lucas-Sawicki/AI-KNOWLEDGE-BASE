@@ -1,0 +1,31 @@
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# Node
+node_modules/
+
+# System
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local temporary files
+*.log
+*.tmp
+temp/
+cache/
+
+# Local editor settings
+.vscode/
+.idea/
