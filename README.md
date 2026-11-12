@@ -8,7 +8,7 @@ Cel projektu
 
 Baza ma zapewniać ciągłość pracy pomiędzy projektami i agentami AI. Informacje zapisane w repozytorium powinny być możliwe do ponownego wykorzystania bez konieczności odtwarzania wcześniejszych rozmów.
 
-Główne założenia6
+Główne założenia
 
 - Jedno centralne repozytorium dla wszystkich projektów AI.
 - Dokumentacja przechowywana w GitHub w formacie Markdown i MDX.
