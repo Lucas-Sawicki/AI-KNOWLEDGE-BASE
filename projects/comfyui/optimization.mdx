@@ -1,0 +1,58 @@
+# Optymalizacja — VRAM, RAM i Modele
+
+## Status
+
+Informacje oznaczone `SOURCE_VERIFIED` pochodzą z kodu ComfyUI, dokumentacji lub PyTorch. `LOCALLY_TESTED` oznacza test na lokalnym Windows użytkownika; w tej wersji takich testów nie wykonano.
+
+## 1. Zarządzanie pamięcią
+
+ComfyUI dynamicznie zarządza załadowanymi modelami, pamięcią GPU i pamięcią CPU. Rzeczywisty koszt zależy od modelu, rozdzielczości, batch size, aktywacji, VAE, tekstowych encoderów, custom nodes i cache. `GET /system_stats` pozwala zebrać stan RAM oraz VRAM przed i po wykonaniu, ale nie zastępuje logów PyTorch/CUDA.
+
+Najpierw zmniejszaj parametry o największym wpływie: batch size, rozdzielczość i liczbę równoległych zadań. Offloading może przenosić część modeli lub tensorów między VRAM i RAM, lecz zwykle zwiększa transfery i czas wykonania.
+
+## 2. Precyzja obliczeń
+
+FP16, BF16 i FP32 są wariantami zależnymi od konkretnego GPU, sterownika, wersji PyTorch oraz modelu. FP16 zwykle zmniejsza zużycie pamięci, ale nie każdy układ wykonuje wszystkie operacje stabilnie. BF16 wymaga odpowiedniego wsparcia sprzętowego i programowego. FP32 zużywa więcej pamięci, ale może być potrzebne dla zgodności lub stabilności. Nie wybieraj formatu wyłącznie na podstawie nazwy modelu.
+
+ComfyUI udostępnia m.in. flagi `--force-fp16`, `--force-fp32`, `--bf16-unet`, `--fp16-unet`, `--fp32-unet`, a także ustawienia precyzji VAE i tekstowego encodera. Są to ustawienia uruchomieniowe, nie uniwersalne zalecenie dla każdego GPU. `SOURCE_VERIFIED`; lokalnej skuteczności na urządzeniu użytkownika nie testowano.
+
+## 3. Flagi pamięci i dynamic VRAM
+
+Aktualny kod ComfyUI definiuje między innymi:
+
+- `--gpu-only` — utrzymuje modele na GPU;
+- `--highvram` — preferuje pozostawianie modeli w pamięci GPU;
+- `--lowvram` — tryb ograniczania użycia VRAM w określonych konfiguracjach;
+- `--novram` — tryb dla bardzo ograniczonego VRAM;
+- `--cpu` — wykonanie na CPU.
+
+`--lowvram` nie jest gwarantowanym remedium na OOM: kod CLI wyraźnie wskazuje, że opcja może nie robić nic, gdy aktywny jest dynamic VRAM. Nie istnieje ogólna flaga `gpu` odpowiadająca temu znaczeniu; należy używać konkretnej flagi i sprawdzić `python main.py --help` dla używanej wersji. Nie łącz flag wzajemnie wykluczających się.
+
+## 4. Diagnostyka CUDA OOM
+
+Przy każdym OOM zapisz raport zamiast losowo zmieniać parametry:
+
+1. wersję ComfyUI, PyTorch, CUDA i sterownika;
+2. nazwę oraz wariant modelu, w tym informację o Stable Diffusion 3.5 Medium, jeśli jest używany;
+3. rozdzielczość, batch size, seed i najważniejsze ustawienia samplera;
+4. nazwę węzła, na którym wystąpił błąd;
+5. `GET /system_stats` przed wykonaniem, zwłaszcza `vram_free`, `vram_total`, RAM i urządzenie;
+6. pełny komunikat OOM oraz końcówkę logu ComfyUI;
+7. użyte flagi pamięci, precyzję i obecność custom nodes.
+
+Następnie testuj pojedyncze zmiany: zmniejszenie batch size, zmniejszenie rozdzielczości, wyłączenie kosztownego cache, offloading lub właściwą flagę pamięci. Jeśli pamięć nie wraca po zakończeniu zadania, zamknięcie i ponowne uruchomienie procesu może być ostatecznym krokiem diagnostycznym, a nie zamiennikiem analizy przyczyny.
+
+## 5. Stable Diffusion 3.5 Medium
+
+Stable Diffusion 3.5 Medium wymaga oceny konkretnego checkpointu, tekstowych encoderów, VAE, rozdzielczości i GPU. Nie podaję tutaj uniwersalnego wymagania VRAM ani gwarantowanej flagi, ponieważ byłaby zależna od konfiguracji. Dla tego modelu należy wykonać osobny smoke test na urządzeniu referencyjnym i zapisać wynik jako `LOCALLY_TESTED` dopiero po uzyskaniu logów i metryk.
+
+## 6. Format modeli
+
+`.safetensors` jest rekomendowany dla własnych modeli ze względu na bezpieczniejszy model przechowywania tensorów niż formaty wymagające deserializacji kodu. Nie jest to jednak jedyny format obsługiwany przez ComfyUI ani gwarancja szybszego ładowania w każdej konfiguracji. Kompatybilność należy sprawdzić dla konkretnego loadera, checkpointu i wersji ComfyUI.
+
+## 7. Status dokumentacji
+
+- `SOURCE_VERIFIED`: dostępne flagi pamięci i precyzji zgodne z `comfy/cli_args.py`.
+- `SOURCE_VERIFIED`: rozdzielenie ogólnego zarządzania pamięcią od ustawień zależnych od GPU/modelu.
+- `NEEDS_VERIFICATION`: wartości progowe VRAM, ustawienia dla konkretnej karty i SD 3.5 Medium.
+- `LOCALLY_TESTED`: nie wykonano.

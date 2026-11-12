@@ -1,0 +1,99 @@
+# Workflows — Dokumentacja
+
+## Status
+
+Dokument opisuje praktykę projektową, a nie gwarancje kompletności przenoszonego workflow. `SOURCE_VERIFIED` odnosi się do formatów i zachowania opisanych w oficjalnej dokumentacji; `LOCALLY_TESTED` nie wykonano.
+
+## 1. Formaty workflow
+
+Workflow tworzy się w edytorze workflow ComfyUI. **UI JSON** przechowuje graf wraz z pozycjami węzłów, połączeniami i metadanymi potrzebnymi do ponownego otwarcia w interfejsie. **API Format** jest grafem wykonawczym przekazywanym w polu `prompt` do `POST /prompt`.
+
+Przykładowy fragment UI JSON:
+
+```json
+{
+  "version": 1,
+  "state": {},
+  "nodes": [
+    {"id": 1, "type": "CheckpointLoaderSimple", "pos": [0, 0], "widgets_values": ["model.safetensors"]}
+  ],
+  "links": []
+}
+```
+
+Przykładowy fragment API Format:
+
+```json
+{
+  "1": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": {"ckpt_name": "model.safetensors"}
+  }
+}
+```
+
+Są to przykłady strukturalne; nazwy węzłów i wejść muszą pochodzić z `/object_info` konkretnej instalacji.
+
+## 2. Cykl życia
+
+1. Zbuduj graf w edytorze workflow ComfyUI.
+2. Zapisz UI JSON jako artefakt źródłowy.
+3. Wyeksportuj lub przygotuj API Format do automatyzacji.
+4. Sprawdź węzły względem `GET /object_info`.
+5. Sprawdź modele względem `/models` i konfiguracji ścieżek.
+6. Wykonaj smoke test z kontrolowanym wejściem.
+7. Zapisz wynik, logi, wersje i metadane środowiska.
+
+## 3. Manifest zależności
+
+Sam JSON nie zawiera wszystkich zasobów wymaganych do wykonania. Dla przenośnego workflow utrzymuj katalog:
+
+```text
+workflow/
+├── workflow.json
+├── workflow_api.json
+├── manifest.yaml
+├── README.md
+└── tests/
+    └── smoke_test.json
+```
+
+Manifest powinien zawierać co najmniej: wersję ComfyUI i frontendu, wersję workflow jako konwencję projektu, wymagane custom nodes, klasy węzłów, nazwy i lokalizacje modeli, wersje zależności, seed, rozdzielczość, batch size, wymagane pliki wejściowe oraz znane ograniczenia GPU. Wersja workflow i identyfikator są metadanymi projektu, nie uniwersalnym wymaganiem natywnego formatu ComfyUI.
+
+## 4. Sprawdzanie zależności
+
+Przed uruchomieniem:
+
+- odczytaj wszystkie `class_type` z API Format;
+- porównaj je z kluczami otrzymanymi z `GET /object_info`;
+- sprawdź, czy wskazane pliki modeli istnieją w odpowiednich katalogach;
+- potwierdź obecność plików wejściowych;
+- zapisz wersję ComfyUI, Pythona, PyTorch, custom nodes i modeli.
+
+Brak klasy w `/object_info` oznacza brak zarejestrowanego node’a, ale jej obecność nie gwarantuje zgodności wejść ani pamięci GPU. Te elementy trzeba sprawdzić osobno.
+
+## 5. Wersjonowanie
+
+Wersjonuj UI JSON, API Format i manifest jako jeden zestaw. Nie nadpisuj działającego artefaktu bez zachowania poprzedniej wersji. Zmiana modelu, custom node, wersji ComfyUI, precyzji, samplera lub parametrów wejściowych powinna mieć opis w changelogu. Git przechowuje pliki workflow, ale nie powinien przechowywać dużych modeli bez osobnej decyzji i infrastruktury.
+
+## 6. Powtarzalność, idempotentność i deterministyczność
+
+- **Powtarzalność wyników:** możliwość uzyskania porównywalnego wyniku przy tym samym workflow, modelu, seedzie i środowisku.
+- **Idempotentność API:** ponowienie tej samej operacji nie powinno niekontrolowanie powodować dodatkowych skutków; `POST /prompt` należy traktować jako operację tworzącą zadanie, więc klient musi zarządzać `prompt_id` i retry.
+- **Deterministyczność obliczeń:** identyczne operacje numeryczne dają identyczny wynik w określonej konfiguracji.
+
+Ten sam seed nie gwarantuje identycznych wyników na innych wersjach ComfyUI, PyTorch, sterownika, GPU, modelu, custom node ani przy innych ustawieniach deterministyczności. Raportuj różnice zamiast nazywać je automatycznie błędem workflow.
+
+## 7. Testowanie i regresja
+
+Smoke test powinien sprawdzić: załadowanie workflow, obecność klas w `/object_info`, dostępność modeli, przyjęcie przez `POST /prompt`, zakończenie `execution_success` albo jawny `execution_error`, obecność wyniku w `/history` oraz zapis metadanych. Test regresyjny powinien porównywać status wykonania, rozmiar/typ wyjścia i ustalone kryteria obrazu, a nie tylko hash obrazu, jeśli środowisko nie jest bitowo deterministyczne.
+
+Testy lokalne dla Windows/ComfyUI nie zostały wykonane w tym sandboxie. Należy uruchomić je interpreterem `E:\AI AGENTS\ComfyUI_windows_portable\python_embeded\python.exe` i zapisać wynik jako `LOCALLY_TESTED` dopiero po uzyskaniu logów.
+
+## 8. Status dokumentacji
+
+- `SOURCE_VERIFIED`: rozróżnienie UI JSON i API Format.
+- `SOURCE_VERIFIED`: potrzeba weryfikacji klas i modeli względem konkretnej instalacji.
+- `NEEDS_VERIFICATION`: dokładne metadane zależne od wersji i format eksportu używany przez lokalny frontend.
+- `LOCALLY_TESTED`: nie wykonano.
+- `PLANNED`: automatyczny smoke test i test regresji dla repozytorium workflow.

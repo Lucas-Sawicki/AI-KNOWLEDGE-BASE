@@ -1,0 +1,96 @@
+# Custom Nodes — Tworzenie i Zarządzanie
+
+## Status
+
+Custom node jest kodem Pythona wykonywanym w procesie ComfyUI. Przed instalacją trzeba sprawdzić źródło, licencję, zależności i zakres uprawnień. `SOURCE_VERIFIED` oznacza zgodność wzorca z kontraktem ComfyUI; testu na lokalnej instalacji użytkownika nie wykonano.
+
+## 1. Struktura modułu
+
+Minimalny moduł może mieć następującą strukturę:
+
+```text
+my_custom_node/
+├── __init__.py
+├── nodes.py
+├── requirements.txt
+└── README.md
+```
+
+`nodes.py` zawiera klasy węzłów, `__init__.py` importuje klasy i eksportuje mapowania, `requirements.txt` opisuje zależności, a `README.md` dokumentuje instalację, wersję i ograniczenia. Dodatkowe pliki testów mogą znajdować się w katalogu `tests/`.
+
+## 2. Kontrakt węzła
+
+Klasa węzła definiuje `INPUT_TYPES`, `RETURN_TYPES`, `FUNCTION` i `CATEGORY`. `INPUT_TYPES` opisuje wymagane i opcjonalne wejścia, `RETURN_TYPES` typy wyjść, `FUNCTION` nazwę metody wykonawczej, a `CATEGORY` miejsce w edytorze. Metoda wykonawcza musi zwrócić krotkę zgodną z `RETURN_TYPES`.
+
+## 3. Kompletny przykład
+
+`nodes.py`:
+
+```python
+class AddInteger:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "a": ("INT", {"default": 0}),
+                "b": ("INT", {"default": 0}),
+            }
+        }
+
+    RETURN_TYPES = ("INT",)
+    RETURN_NAMES = ("sum",)
+    FUNCTION = "execute"
+    CATEGORY = "Example/Math"
+
+    def execute(self, a, b):
+        if not isinstance(a, int) or not isinstance(b, int):
+            raise TypeError("a and b must be integers")
+        return (a + b,)
+```
+
+`__init__.py`:
+
+```python
+from .nodes import AddInteger
+
+NODE_CLASS_MAPPINGS = {
+    "AddInteger": AddInteger,
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "AddInteger": "Add Integer (Example)",
+}
+
+__all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
+```
+
+Mapowanie `NODE_DISPLAY_NAME_MAPPINGS` jest opcjonalne. `NODE_CLASS_MAPPINGS` musi wskazywać identyfikator klasy na klasę Pythona i być dostępne z poziomu pakietu ładowanego przez ComfyUI. Wzorzec jest `SOURCE_VERIFIED` względem publicznego kontraktu custom nodes, ale nie został zaimportowany w lokalnym ComfyUI.
+
+## 4. Instalacja
+
+Skopiuj katalog do `ComfyUI/custom_nodes/my_custom_node/`. Jeśli istnieje `requirements.txt`, przeanalizuj zależności i zainstaluj je wyłącznie w interpreterze ComfyUI, po sprawdzeniu wersji PyTorch i zgodności z lokalną instalacją. Następnie uruchom ComfyUI ponownie i sprawdź log ładowania. Nie instaluj pakietów z nieznanych źródeł bez zatwierdzenia.
+
+## 5. Testy
+
+Minimalny zestaw testów powinien obejmować:
+
+```powershell
+$py = 'E:\AI AGENTS\ComfyUI_windows_portable\python_embeded\python.exe'
+& $py -m py_compile .\nodes.py .\__init__.py
+& $py -c "import sys; sys.path.insert(0, '.'); import my_custom_node; print(my_custom_node.NODE_CLASS_MAPPINGS)"
+```
+
+Następnie należy sprawdzić: obecność klasy w `NODE_CLASS_MAPPINGS`, zgodność wejść/wyjść, wykonanie metody na poprawnych danych, odrzucenie błędnych danych oraz faktyczne pojawienie się węzła w `/object_info` po uruchomieniu ComfyUI. Powyższych komend nie wykonano w tym środowisku, więc ich status to `PLANNED`, nie `LOCALLY_TESTED`.
+
+`py_compile` sprawdza tylko składnię. Nie potwierdza importu, zależności, rejestracji ani wykonania. Test nie powinien zawierać pustego `try-except` ani przechwytywać wszystkich wyjątków bez ponownego zgłoszenia; błąd ma pozostać widoczny diagnostycznie.
+
+## 6. Aktualizacja i kompatybilność
+
+Przed aktualizacją zachowaj wersję node, ComfyUI, Pythona i zależności. Sprawdź changelog custom node, wykonaj test importu i smoke test, a przy zmianie kontraktu porównaj `GET /object_info` przed i po aktualizacji. W przypadku błędu importu zapisz pełny traceback, nazwę zależności i interpreter, który został użyty.
+
+## 7. Status dokumentacji
+
+- `SOURCE_VERIFIED`: kontrakt pól i mapowania rejestracyjnego.
+- `SOURCE_VERIFIED`: ryzyko wykonywania obcego kodu Python i potrzeba kontroli zależności.
+- `PLANNED`: testy na lokalnym interpreterze ComfyUI.
+- `LOCALLY_TESTED`: nie wykonano.

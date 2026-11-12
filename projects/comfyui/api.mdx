@@ -1,0 +1,159 @@
+# API ComfyUI — Dokumentacja Techniczna
+
+## Status i zakres
+
+`SOURCE_VERIFIED` oznacza informację potwierdzoną w aktualnym kodzie lub oficjalnej dokumentacji ComfyUI. `LOCALLY_TESTED` oznacza test wykonany na lokalnej instalacji Windows użytkownika. W tej wersji nie wykonano testów `LOCALLY_TESTED`; środowisko `E:\AI AGENTS\ComfyUI_windows_portable` nie jest dostępne z tego sandboxa.
+
+## 1. Architektura komunikacji
+
+ComfyUI udostępnia HTTP REST oraz pojedyncze połączenie WebSocket dla komunikatów o stanie i wykonaniu. Domyślny adres lokalny to `http://127.0.0.1:8188`; WebSocket używa `ws://127.0.0.1:8188/ws?clientId=<id>`. Klient nie subskrybuje osobnych kanałów eventów. Łączy się z `/ws` i interpretuje komunikaty JSON według pola `type`.
+
+## 2. Endpointy REST
+
+Poniższe opisy są `SOURCE_VERIFIED` na podstawie aktualnego `server.py`; formaty odpowiedzi mogą rozszerzać się wraz z wersją ComfyUI.
+
+### `POST /prompt`
+
+Kolejkuje graf API do wykonania. Minimalny kształt żądania:
+
+```json
+{
+  "prompt": {
+    "3": {
+      "class_type": "KSampler",
+      "inputs": { "seed": 123, "steps": 20 }
+    }
+  },
+  "client_id": "agent-client-1"
+}
+```
+
+`prompt` jest mapą identyfikatorów węzłów na obiekty zawierające co najmniej `class_type` i `inputs`. Serwer waliduje graf przed dodaniem go do kolejki. Przy sukcesie odpowiedź zawiera identyfikator zadania; przy odrzuceniu walidacji typową odpowiedzią jest HTTP `400` z polami `error` i `node_errors`.
+
+### `GET /history`
+
+Zwraca historię zakończonych zadań wraz z wynikami i metadanymi. Klient powinien używać `prompt_id` z odpowiedzi `/prompt` do znalezienia konkretnego wykonania. Nie należy traktować samego zamknięcia WebSocketu jako dowodu sukcesu; wynik należy potwierdzić komunikatem wykonania lub historią.
+
+### `GET /prompt`
+
+Zwraca stan kolejki w formacie zawierającym między innymi `queue_remaining`. Nie należy opisywać tego endpointu jako pełnej listy pozycji `running` i `pending`; do takich danych służą odpowiednie mechanizmy wersji serwera, a dokumentacja klienta musi sprawdzić konkretną wersję ComfyUI.
+
+### `POST /queue`
+
+Obsługuje operacje na kolejce, w tym czyszczenie lub usuwanie zadań zgodnie z payloadem przyjętym przez daną wersję serwera. Przed użyciem klient powinien odczytać aktualny kod/kontrakt endpointu i testować operację na zadaniu nieprodukcyjnym.
+
+### `GET /system_stats`
+
+Zwraca informacje o systemie, wersji ComfyUI/PyTorch, pamięci RAM oraz urządzeniach widocznych dla PyTorch, w tym `vram_total`, `vram_free`, `torch_vram_total` i `torch_vram_free`. Endpoint nie jest katalogiem modeli.
+
+### `GET /models` i `GET /models/{folder}`
+
+Służą do listowania typów katalogów modeli oraz plików w wybranym katalogu modeli. Dokładne nazwy folderów zależą od konfiguracji ścieżek modeli. Wynik należy traktować jako inwentaryzację ścieżek dostępnych dla serwera, a nie dowód, że każdy model jest kompatybilny z konkretnym workflow.
+
+### `GET /object_info`
+
+Zwraca metadane zarejestrowanych klas węzłów, w tym wejścia, wyjścia, kategorie i właściwości. Jest to podstawowy endpoint autodiscovery custom nodes. Dostępny jest również wariant dla konkretnej klasy: `GET /object_info/{node_class}`.
+
+## 3. WebSocket — typy komunikatów
+
+Każdy komunikat ma logiczny kształt `{"type": "...", "data": {...}}`. Typy i payloady należy wiązać z `prompt_id`, jeśli pole jest dostępne.
+
+| `type` | Znaczenie | Reakcja agenta | Warunek zakończenia |
+|---|---|---|---|
+| `status` | Stan kolejki wysłany przy połączeniu | Zapamiętaj `sid` i stan początkowy | Nie kończy zadania |
+| `execution_start` | Rozpoczęcie wykonania promptu | Utwórz ślad zadania | Nie kończy zadania |
+| `executing` | Aktualnie wykonywany węzeł | Aktualizuj postęp i `node` | Nie kończy zadania |
+| `execution_cached` | Węzły zostały obsłużone z cache | Zapisz informację o cache | Nie kończy zadania |
+| `progress` | Postęp bieżącego węzła, gdy jest raportowany | Aktualizuj UI/log | Nie kończy zadania |
+| `execution_success` | Wykonanie zakończyło się powodzeniem | Odczytaj historię i wyniki | Sukces dopiero po zgodności `prompt_id` |
+| `execution_error` | Błąd wykonania węzła lub promptu | Zatrzymaj retry, zapisz payload błędu | Błąd |
+| `execution_interrupted` | Wykonanie zostało przerwane | Oznacz zadanie jako przerwane | Przerwanie, nie sukces |
+
+Lista jest `SOURCE_VERIFIED` względem aktualnego kodu silnika, ale szczegóły payloadów powinny być ponownie porównane przy zmianie wersji ComfyUI. Rozłączenie WebSocketu jest stanem transportowym i samo w sobie nie oznacza sukcesu ani błędu.
+
+## 4. Przykład Python — wysłanie promptu
+
+```python
+import uuid
+import requests
+
+BASE_URL = "http://127.0.0.1:8188"
+client_id = str(uuid.uuid4())
+prompt = {
+    "3": {
+        "class_type": "KSampler",
+        "inputs": {"seed": 123, "steps": 20},
+    }
+}
+
+response = requests.post(
+    f"{BASE_URL}/prompt",
+    json={"prompt": prompt, "client_id": client_id},
+    timeout=30,
+)
+response.raise_for_status()
+data = response.json()
+prompt_id = data.get("prompt_id")
+if not prompt_id:
+    raise RuntimeError(f"Brak prompt_id w odpowiedzi: {data}")
+print(prompt_id)
+```
+
+Przykład jest `SOURCE_VERIFIED` jako wzorzec HTTP, ale nie został uruchomiony lokalnie (`LOCALLY_TESTED: nie wykonano`). Sam fragment używa uproszczonego grafu; rzeczywisty workflow musi mieć kompletne wejścia wymagane przez węzły.
+
+## 5. Przykład Python — odbiór WebSocket
+
+```python
+import json
+import websocket
+
+client_id = "agent-client-1"
+ws = websocket.create_connection(
+    f"ws://127.0.0.1:8188/ws?clientId={client_id}",
+    timeout=30,
+)
+try:
+    while True:
+        raw = ws.recv()
+        message = json.loads(raw)
+        event_type = message.get("type")
+        data = message.get("data", {})
+        if event_type == "execution_success":
+            print("SUCCESS", data)
+            break
+        if event_type == "execution_error":
+            raise RuntimeError(data)
+        if event_type == "execution_interrupted":
+            raise RuntimeError("Wykonanie przerwane")
+        if event_type in {"status", "executing", "execution_cached", "progress"}:
+            print(event_type, data)
+finally:
+    ws.close()
+```
+
+Przykład wymaga pakietu `websocket-client` w interpreterze używanym przez integrację. Instalacji i wykonania lokalnego nie przeprowadzono.
+
+## 6. Obsługa błędów HTTP
+
+- `400`: błędny lub niewalidowalny prompt; zapisz `error` oraz `node_errors` i nie ponawiaj bez zmiany przyczyny.
+- `404`: nieistniejąca trasa albo folder modelu; sprawdź wersję serwera i konfigurację.
+- `413`: przekroczony limit uploadu.
+- `500`: błąd serwera lub węzła; zachowaj identyfikator zadania i log serwera.
+- timeout/connection refused: sprawdź, czy ComfyUI działa, adres, port i firewall.
+
+Retry powinien mieć limit, backoff i warunek idempotencji. Nie ponawiaj automatycznie operacji zmieniających kolejkę bez potwierdzenia aktualnego stanu.
+
+## 7. UI JSON a API Format
+
+**UI JSON** zapisuje workflow edytora, w tym pozycje węzłów, połączenia, metadane interfejsu i informacje potrzebne do ponownego otwarcia grafu w edytorze. **API Format** jest grafem wykonawczym przekazywanym w polu `prompt` do `POST /prompt`: mapą `node_id -> {class_type, inputs}`. UI JSON nie powinien być wysyłany bezpośrednio jako `prompt` bez konwersji do formatu API.
+
+## 8. Bezpieczeństwo i ograniczenia
+
+Domyślnie dokumentacja zakłada dostęp lokalny. `--listen`, CORS, TLS, proxy lub tunel zmieniają model zagrożeń i wymagają osobnej konfiguracji. Nie przesyłaj sekretów ani danych wrażliwych w promptach, logach i eksportach.
+
+## 9. Status dokumentacji
+
+- `SOURCE_VERIFIED`: opis tras i mechanizmu komunikatów na podstawie kodu ComfyUI.
+- `SOURCE_VERIFIED`: rozróżnienie UI JSON/API Format jako modelu integracji.
+- `LOCALLY_TESTED`: nie wykonano — brak dostępu do lokalnego Windows/ComfyUI.
+- `NEEDS_VERIFICATION`: dokładne payloady `POST /queue`, odpowiedzi wszystkich tras i różnice między wersjami serwera.
