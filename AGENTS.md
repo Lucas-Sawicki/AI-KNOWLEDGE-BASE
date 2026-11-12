@@ -46,27 +46,53 @@ Przed realizacją zadania:
 Nie zakładaj, że dokumentacja jest aktualna.
 Weryfikuj ją z rzeczywistym kodem i środowiskiem.
 
-## 3. Context7 MCP
 
-Context7 jest podstawowym źródłem aktualnej
-dokumentacji zewnętrznych bibliotek.
+## 3. Context7 MCP — obowiązkowa procedura
 
-Korzystaj z niego, gdy:
-- używasz nieznanego API;
-- tworzysz integrację;
-- zmieniasz wersję biblioteki;
-- rozwiązujesz problem zgodności;
-- tworzysz custom nodes;
-- korzystasz z PyTorch, Diffusers lub Transformers.
+Dostępne narzędzia:
+- resolve-library-id
+- query-docs
 
-Procedura:
-1. resolve-library-id.
-2. Wybór właściwego identyfikatora.
-3. query-docs.
-4. Porównanie dokumentacji z wersją lokalną.
-5. Weryfikacja rozwiązania testem.
+### 3.1 Identyfikacja biblioteki
 
-Nie wymyślaj metod, klas, parametrów ani API.
+resolve-library-id wymaga dwóch argumentów:
+
+{
+  "libraryName": "PyTorch",
+  "query": "CUDA memory management and GPU optimization"
+}
+
+Zawsze przekazuj oba pola.
+
+### 3.2 Pobieranie dokumentacji
+
+Po uzyskaniu identyfikatora biblioteki użyj query-docs.
+
+Przykładowe identyfikatory:
+
+- PyTorch: /pytorch/pytorch
+- Diffusers: /huggingface/diffusers
+- Transformers: /huggingface/transformers
+- ComfyUI: /comfy-org/comfyui
+
+Identyfikatory są punktami wyjścia.
+Jeżeli biblioteka lub wersja się zmieni, ponownie zweryfikuj identyfikator.
+
+### 3.3 Zasady korzystania
+
+1. Najpierw resolve-library-id.
+2. Następnie query-docs.
+3. Zadawaj konkretne pytania techniczne.
+4. Weryfikuj wersję dokumentacji.
+5. Porównuj odpowiedzi z lokalnym środowiskiem.
+6. Nie wymyślaj API ani parametrów.
+7. Zapisuj ważne ustalenia w centralnej bazie wiedzy.
+
+Context7 jest źródłem dokumentacji zewnętrznej.
+Docs7 jest źródłem wiedzy o własnych projektach.
+
+Nie utożsamiaj tych dwóch systemów.
+
 
 ## 4. Docs7
 
