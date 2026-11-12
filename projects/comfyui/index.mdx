@@ -1,0 +1,158 @@
+
+# ComfyUI — lokalne środowisko AI
+
+## 1. Cel projektu
+
+ComfyUI jest głównym lokalnym interfejsem do budowania, uruchamiania i zarządzania workflow związanymi z generowaniem oraz przetwarzaniem danych AI.
+
+Projekt obejmuje:
+- lokalną instalację ComfyUI w systemie Windows;
+- obsługę modeli generatywnych;
+- tworzenie i zarządzanie workflow;
+- integrację z ComfyUI API;
+- tworzenie własnych węzłów (custom nodes);
+- optymalizację wykorzystania RAM i VRAM;
+- współpracę z zewnętrznymi zasobami GPU, jeśli użytkownik wyrazi zgodę.
+
+## 2. Główne założenia architektury
+
+**Lokalny ComfyUI pozostaje głównym środowiskiem pracy.**
+
+Priorytety:
+1. Lokalna karta graficzna.
+2. Optymalizacja wykorzystania pamięci VRAM.
+3. Wykorzystanie dostępnej pamięci RAM.
+4. Optymalizacja modeli, workflow i parametrów wykonania.
+5. Opcjonalny zdalny backend GPU.
+
+Kaggle może pełnić funkcję dodatkowego zasobu obliczeniowego. Nie może samodzielnie decydować o treści generowania, promptach ani kreatywnych parametrach projektu.
+
+## 3. Środowisko lokalne
+
+System operacyjny: Windows.
+
+Typ instalacji: ComfyUI Windows Portable.
+
+Główna ścieżka instalacji:
+
+```text
+E:\AI AGENTS\ComfyUI_windows_portable
+```
+
+Interpreter Python używany przez ComfyUI:
+
+```text
+E:\AI AGENTS\ComfyUI_windows_portable\python_embeded\python.exe
+```
+
+**Ważne:** pakiety i zależności należy instalować z użyciem interpretera dostarczonego z ComfyUI, a nie automatycznie z systemowego Pythona.
+
+Przed zmianami środowiska należy sprawdzić:
+- wersję Pythona;
+- wersję PyTorch;
+- dostępność CUDA;
+- wersje bibliotek;
+- zgodność zależności.
+
+## 4. Komunikacja przez API
+
+Lokalne API ComfyUI służy do:
+- wysyłania workflow;
+- uruchamiania zadań;
+- monitorowania wykonania;
+- odbierania wyników;
+- integracji z zewnętrznymi skryptami i narzędziami.
+
+Wcześniejsze testy potwierdziły odpowiedź HTTP 200 z lokalnego API.
+
+Każda nowa integracja powinna być sprawdzona osobnym testem połączenia i wykonania zadania.
+
+## 5. Modele i technologie
+
+Dokumentacja projektu uwzględnia między innymi:
+
+- Stable Diffusion 3.5 Medium;
+- modele w formacie Safetensors;
+- PyTorch;
+- Diffusers;
+- workflow ComfyUI w formacie JSON;
+- modele i komponenty wykorzystywane w treningu LoRA.
+
+Sposób instalacji i uruchamiania konkretnego modelu należy dokumentować oddzielnie. Nie należy zakładać, że konfiguracja Diffusers jest identyczna z konfiguracją workflow ComfyUI.
+
+## 6. Custom Nodes
+
+Własne węzły rozszerzają funkcjonalność ComfyUI.
+
+Każdy moduł powinien zawierać:
+- opis funkcjonalności;
+- wymagania i zależności;
+- definicję wejść i wyjść;
+- implementację funkcji wykonawczej;
+- rejestrację w ComfyUI;
+- instrukcję instalacji;
+- testy poprawności działania.
+
+Szczegóły znajdują się w dokumencie:
+
+`projects/comfyui/custom-nodes.mdx`
+
+## 7. Workflow
+
+Workflow powinny być:
+- możliwe do ponownego wykorzystania;
+- zapisane w formacie JSON;
+- opisane pod kątem wymaganych modeli i węzłów;
+- możliwe do uruchomienia w lokalnym środowisku;
+- testowane przed uznaniem ich za działające.
+
+Dokumentacja:
+
+`projects/comfyui/workflows.mdx`
+
+## 8. Optymalizacja wydajności
+
+Optymalizacja obejmuje:
+- wykorzystanie pamięci VRAM;
+- wykorzystanie pamięci RAM;
+- zarządzanie modelami;
+- ograniczanie zbędnego kopiowania danych;
+- dobór parametrów wykonania;
+- diagnostykę błędów pamięci;
+- wykorzystanie lokalnych i opcjonalnych zdalnych zasobów GPU.
+
+Dokumentacja:
+
+`projects/comfyui/optimization.mdx`
+
+## 9. Zasady bezpieczeństwa i kontroli
+
+- Nie zapisujemy kluczy API ani haseł w repozytorium.
+- Nie modyfikujemy środowiska bez analizy zależności.
+- Nie instalujemy niepotrzebnych bibliotek.
+- Nie uruchamiamy niezweryfikowanych skryptów.
+- Nie korzystamy z płatnych zasobów bez zgody użytkownika.
+- Nie przekazujemy zadań do Kaggle bez zgody użytkownika.
+- Nie zmieniamy założeń kreatywnych workflow bez zgody użytkownika.
+
+## 10. Status dokumentacji
+
+Dokumentacja jest rozwijana etapami.
+
+Statusy informacji:
+- **Potwierdzone** — sprawdzone w działającym środowisku.
+- **W trakcie weryfikacji** — wymaga ponownego testu.
+- **Planowane** — element architektury, który nie został jeszcze wdrożony.
+
+Nie należy przedstawiać planowanych funkcji jako gotowych.
+
+## 11. Powiązane dokumenty
+
+- `projects/comfyui/custom-nodes.mdx`
+- `projects/comfyui/workflows.mdx`
+- `projects/comfyui/api.mdx`
+- `projects/comfyui/optimization.mdx`
+
+## 12. Zasada nadrzędna
+
+ComfyUI pozostaje głównym lokalnym środowiskiem pracy. Wszystkie rozszerzenia, integracje i optymalizacje mają zwiększać jego możliwości, zachowując kontrolę użytkownika nad workflow, kreatywnością i zasobami obliczeniowymi.
