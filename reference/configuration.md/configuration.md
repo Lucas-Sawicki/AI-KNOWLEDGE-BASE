@@ -1,3 +1,7 @@
+---
+title: Configuration reference
+---
+
 # Configuration reference
 
 

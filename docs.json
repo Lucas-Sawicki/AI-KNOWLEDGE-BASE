@@ -12,6 +12,7 @@
         "pages": [
           "getting-started",
           "guides/overview.md/overview",
+          "reference/configuration.md/configuration",
           "projects/index",
           "knowledge/index",
           "standards/index",
