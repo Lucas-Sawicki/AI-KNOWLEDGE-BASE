@@ -1,0 +1,69 @@
+
+{
+  "$schema": "https://context7.com/schema/docs7.json",
+  "name": "AI Knowledge Base",
+  "colors": {
+    "primary": "#6366F1"
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Start",
+        "pages": [
+          "projects/index",
+          "knowledge/index",
+          "standards/index",
+          "templates/index"
+        ]
+      },
+      {
+        "group": "Projekty AI",
+        "pages": [
+          "projects/comfyui/index",
+          "projects/comfyui/custom-nodes",
+          "projects/comfyui/workflows",
+          "projects/comfyui/api",
+          "projects/comfyui/optimization",
+          "projects/lora-training-studio/index",
+          "projects/lora-training-studio/kaggle-notebook",
+          "projects/lora-training-studio/training",
+          "projects/lora-training-studio/export",
+          "projects/ai-agents/index",
+          "projects/ai-agents/architecture",
+          "projects/ai-agents/mcp-servers",
+          "projects/ai-agents/memory-rag",
+          "projects/gpu-backend/index",
+          "projects/gpu-backend/local-gpu",
+          "projects/gpu-backend/kaggle-backend"
+        ]
+      },
+      {
+        "group": "Baza technologiczna",
+        "pages": [
+          "knowledge/python",
+          "knowledge/pytorch",
+          "knowledge/diffusers",
+          "knowledge/transformers",
+          "knowledge/safetensors",
+          "knowledge/mcp-context7"
+        ]
+      },
+      {
+        "group": "Standardy i procedury",
+        "pages": [
+          "standards/coding-rules",
+          "standards/testing",
+          "standards/gpu-memory",
+          "standards/security"
+        ]
+      },
+      {
+        "group": "Szablony",
+        "pages": [
+          "templates/project-template",
+          "templates/custom-node-template"
+        ]
+      }
+    ]
+  }
+}
