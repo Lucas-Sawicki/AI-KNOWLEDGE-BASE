@@ -1,1 +1,1 @@
-{"name":"contextrepo","theme":"mint","colors":{"primary":"#16A34A","light":"#22C55E","dark":"#15803D"},"navigation":{"groups":[{"group":"Documentation","pages":["README"]}]}}
+{"name":"contextrepo","theme":"mint","colors":{"primary":"#16A34A","light":"#22C55E","dark":"#15803D"},"navigation":{"groups":[{"group":"Documentation","pages":["getting-started","guides/overview"]},{"group":"Reference","pages":["reference/configuration"]}]}}
