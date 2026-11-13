@@ -1,0 +1,62 @@
+# Standard testowania
+
+## Cel
+
+Ten standard definiuje minimalny sposób planowania, wykonywania i raportowania testów w projektach AI. Dokument nie zastępuje testów właściwych dla ComfyUI, PyTorch, LoRA, MCP ani usług zewnętrznych.
+
+## Status informacji
+
+- `SOURCE_VERIFIED` — zachowanie potwierdzone w oficjalnej dokumentacji narzędzia.
+- `REPORTED` — informacja z repozytorium lub raportu użytkownika.
+- `NEEDS_VERIFICATION` — informacja zależna od środowiska, wersji, modelu lub wyniku testu.
+- `PLANNED` — procedura lub test jeszcze niewykonany.
+- `LOCALLY_TESTED` — tylko dla rzeczywiście wykonanego, odtwarzalnego testu z dowodem.
+
+## Zasady
+
+1. Najpierw ustal zakres, wejścia, oczekiwany artefakt i kryterium zaliczenia.
+2. Zapisz środowisko, wersje, sprzęt, konfigurację i identyfikator zadania.
+3. Oddziel test dymny, funkcjonalny, regresję, test negatywny i test integracyjny.
+4. Nie przedstawiaj planu testu jako jego wyniku.
+5. Nie oznaczaj informacji jako `LOCALLY_TESTED` bez logu, wyniku i możliwości odtworzenia.
+6. Nie nadpisuj istniejących artefaktów testowych bez zachowania poprzedniego wyniku.
+
+## Poziomy testów
+
+### Test statyczny
+
+Obejmuje składnię, formatowanie, linki, obecność wymaganych sekcji, brak markerów konfliktów i `git diff --check`. Wynik powinien wskazywać dokładną komendę oraz status.
+
+### Test importu i rejestracji
+
+Dla kodu sprawdź import modułu, rejestrację komponentu i brak ukrytych wyjątków. W custom node ComfyUI rozdziel test składni, importu, mapowania klasy i wykonania funkcji.
+
+### Test funkcjonalny
+
+Uruchom najmniejszy kontrolowany przypadek z jawnie znanymi wejściami. Zapisz wynik, log błędu, czas i ścieżkę artefaktu. Dla modeli nie utożsamiaj udanego ładowania z poprawnością jakościową.
+
+### Test integracyjny
+
+Sprawdź połączenie z rzeczywistym środowiskiem, np. ComfyUI, GPU, notebookiem Kaggle, serwerem MCP lub pipeline’em Diffusers. Wymień zależności i nie zakładaj dostępu do lokalnego Windows bez autoryzowanego kanału.
+
+### Regresja
+
+Powtórz wcześniej zatwierdzony przypadek po zmianie. Porównuj wejścia, wersje, konfigurację, log i artefakt. Wynik wizualny generowania może różnić się mimo tych samych ustawień; opisz kryterium porównania zamiast obiecywać identyczność.
+
+## Raport testu
+
+Minimalny raport powinien zawierać identyfikator i cel testu, datę i środowisko, wersje narzędzi, bibliotek i modelu, sprzęt, komendę lub workflow, wejścia, oczekiwany i rzeczywisty wynik, ścieżki logów i artefaktów, błąd oraz decyzję: zaliczony, niezaliczony albo `NEEDS_VERIFICATION`.
+
+## Diagnostyka
+
+Przy niepowodzeniu zachowaj pierwszy pełny błąd, a następnie sprawdzaj zależności, ścieżki, wersje i zasoby. Nie wykonuj losowych zmian pakietów ani automatycznego retry, jeśli może to utrudnić odtworzenie. Przy OOM zapisz model, batch, rozdzielczość, dtype i pomiar pamięci. Przy błędzie usługi zewnętrznej zapisz kod odpowiedzi i konfigurację bez sekretów.
+
+## Status bieżącego pliku
+
+Nie wykonano lokalnych testów kodu, GPU, ComfyUI, Kaggle ani MCP podczas tworzenia tego dokumentu. Procedury powyżej mają status `PLANNED` lub `NEEDS_VERIFICATION`; `LOCALLY_TESTED` nie jest deklarowany.
+
+## Źródła
+
+- `REPORTED`: `AGENTS.md` — obowiązek testowania składni, importów, rejestracji, wykonania i integracji.
+- `REPORTED`: `README.md` — rozdzielenie informacji potwierdzonych, planowanych i wymagających sprawdzenia.
+- `NEEDS_VERIFICATION`: kryteria szczegółowe trzeba dopasować do konkretnego narzędzia i projektu.

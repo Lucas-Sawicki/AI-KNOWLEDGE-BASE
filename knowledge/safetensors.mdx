@@ -1,0 +1,120 @@
+---
+title: Safetensors: format, bezpieczny odczyt i walidacja
+status: SOURCE_VERIFIED
+---
+
+# Safetensors: format, bezpieczny odczyt i walidacja
+
+> **Status wpisu:** `SOURCE_VERIFIED` dla twierdzeń pokrytych oficjalną dokumentacją i oficjalnym repozytorium Safetensors. `NEEDS_VERIFICATION` oznacza zależność od konkretnej wersji biblioteki, frameworka, pliku lub środowiska. `PLANNED` oznacza procedurę do wykonania, a nie wykonany test. `REPORTED` jest używany tylko dla informacji niepotwierdzonej w tym wpisie. `LOCALLY_TESTED` nie jest deklarowany, ponieważ lokalne środowisko nie było testowane.
+
+## Cel i zakres
+
+Safetensors jest formatem przechowywania tensorów zaprojektowanym jako bezpieczniejsza alternatywa dla formatów, które przy odczycie mogą wykonywać kod, oraz jako format umożliwiający szybki i opóźniony odczyt danych. Ten wpis opisuje wspólne zasady dla agentów AI: strukturę pliku, ostrożny odczyt, walidację metadanych i bufora bajtów, diagnostykę oraz kryteria testowania. [1] [2]
+
+Zakres obejmuje pliki z rozszerzeniem `.safetensors`, ogólny format oraz pokazane oficjalnie API Python `safe_open` i `safetensors.torch.save_file`. Szczegóły integracji z konkretnym projektem, modelem, checkpointem, systemem operacyjnym, urządzeniem lub wersją zależności pozostają poza zakresem i wymagają osobnej weryfikacji (`NEEDS_VERIFICATION`). Nie jest to dokumentacja konkretnego workflow, ComfyUI, Transformers ani projektu treningowego.
+
+## Architektura formatu i zasady bezpieczeństwa
+
+Plik ma następujący układ binarny:
+
+1. Pierwsze 8 bajtów to `N`, bez znaku, w little-endian, określające rozmiar nagłówka.
+2. Kolejne `N` bajtów to nagłówek zapisany jako UTF-8 JSON.
+3. Nagłówek musi zaczynać się od znaku `{` (`0x7B`); może mieć końcowe dopełnienie spacjami (`0x20`).
+4. Pozostała część pliku jest buforem danych tensorów.
+
+Wpis tensoru w nagłówku zawiera co najmniej `dtype`, `shape` oraz `data_offsets`. Przedziały `data_offsets` są względne wobec początku bufora danych, a drugi koniec jest wyłączny, więc rozmiar zakresu wynosi `END - BEGIN`. Specjalny klucz `__metadata__` może zawierać mapę string-to-string; dowolne zagnieżdżone wartości JSON nie są dozwolone w tej sekcji. [2]
+
+Format wymaga, aby klucze nie były zduplikowane, a bufor bajtów był w całości zindeksowany i nie zawierał luk. Dokumentacja opisuje little-endian, kolejność `C`/row-major oraz brak stride w serializowanym tensorze. Dopuszczone są między innymi tensory puste oraz tensory rzędu zero, czyli skalary. Sam format nie sprawdza, czy wartości tensorów są skończone; w pliku mogą wystąpić `NaN`, `+Inf` i `-Inf`. Walidacja struktury pliku nie zastępuje więc walidacji semantycznej wartości modelu. [2]
+
+Główną zasadą bezpieczeństwa jest używanie parsera Safetensors zamiast mechanizmu deserializacji, który przy wczytywaniu może uruchamiać dowolny kod. Oficjalne źródła opisują Safetensors jako format bezpieczny w tym sensie oraz wskazują, że umożliwia lazy loading i kontrolowany dostęp do danych. Nie należy jednak interpretować tego jako gwarancji, że każdy plik jest zaufany pod względem pochodzenia, zawartości modelu, odmowy usługi, zgodności z zadaniem ani wartości liczbowych. [1] [2]
+
+## Wymagania
+
+- Zainstalowany pakiet `safetensors` jest wymagany do użycia przedstawionego API Python. Oficjalna dokumentacja podaje instalację przez `pip install safetensors` oraz alternatywę conda, ale konkretna wersja nie jest tu ustalana (`SOURCE_VERIFIED`; wersja środowiska `NEEDS_VERIFICATION`). [1]
+- Framework przekazany do `safe_open`, urządzenie docelowe i sposób mapowania danych muszą odpowiadać środowisku agenta (`NEEDS_VERIFICATION`). Oficjalny przykład używa `framework="pt"` i `device="cpu"` albo urządzenia liczbowego; nie wolno zakładać, że każdy framework lub device jest dostępny w każdym środowisku. [1] [3]
+- Plik wejściowy musi pochodzić z ustalonego źródła lub zostać poddany procedurze walidacji przed użyciem. Weryfikacja sum kontrolnych, podpisu, reputacji repozytorium, licencji oraz zgodności z konkretnym modelem jest zależna od projektu (`NEEDS_VERIFICATION`).
+- Nie należy zapisywać sekretów, tokenów ani prywatnych ścieżek w przykładach lub metadanych dokumentacji.
+
+## Procedura użycia dla agenta AI
+
+### 1. Ustal źródło i przeznaczenie pliku
+
+Zidentyfikuj źródło pliku, oczekiwany model, framework, dtype, kształty tensorów i urządzenie docelowe. Jeżeli któregokolwiek elementu nie da się ustalić, oznacz go `NEEDS_VERIFICATION`; nie zgaduj na podstawie samego rozszerzenia.
+
+### 2. Odczytaj bez wykonywania kodu z pliku
+
+Dla Python API oficjalny wzorzec używa kontekstu `safe_open`, iteracji po `f.keys()` i `f.get_tensor(key)`:
+
+```python
+from safetensors import safe_open
+
+tensors = {}
+with safe_open("model.safetensors", framework="pt", device="cpu") as f:
+    for key in f.keys():
+        tensors[key] = f.get_tensor(key)
+```
+
+Powyższy fragment jest wzorcem z dokumentacji (`SOURCE_VERIFIED`), a nie wynikiem testu w tym repozytorium. Konkretna ścieżka, framework, urządzenie i kompletność odczytu wymagają sprawdzenia (`NEEDS_VERIFICATION`). [1] [3]
+
+Jeśli potrzebna jest tylko część dużego tensora, oficjalna dokumentacja pokazuje `f.get_slice("embedding")`, `get_shape()` oraz indeksowanie wycinka. Taki sposób może ograniczyć zakres odczytu, lecz wpływ na pamięć, czas i urządzenie musi zostać sprawdzony w docelowym środowisku (`NEEDS_VERIFICATION`). [1] [3]
+
+### 3. Sprawdź metadane i strukturę
+
+Przed użyciem tensorów sprawdź, o ile API i wersja biblioteki to udostępniają, listę kluczy, oczekiwane nazwy, kształty, dtype oraz metadane. Nie traktuj `__metadata__` jako miejsca na dowolny obiekt JSON: oficjalny opis ogranicza wartości tej mapy do stringów. [2]
+
+Na poziomie formatu walidator powinien sprawdzać co najmniej: możliwość odczytu 8-bajtowego rozmiaru nagłówka, poprawne UTF-8/JSON, początek nagłówka `{`, brak zduplikowanych kluczy, poprawność pól tensorów, sensowność przedziałów `data_offsets`, brak nakładania się zakresów, pełne pokrycie bufora bez luk oraz zgodność rozmiaru danych z dtype i shape. To jest kryterium proponowane na podstawie specyfikacji formatu (`PLANNED`), nie istniejący skrypt ani wynik testu. Nie należy wymyślać nazwy walidatora ani deklarować jego implementacji.
+
+### 4. Zweryfikuj semantykę po odczycie
+
+Po walidacji strukturalnej sprawdź zgodność nazw i kształtów z kontraktem modelu, oczekiwany dtype, urządzenie, brak nieoczekiwanych tensorów oraz wartości `NaN`/`Inf`, jeśli są niedopuszczalne dla danego zastosowania. Safetensors nie deklaruje automatycznej kontroli tych wartości, więc jest to odpowiedzialność procedury projektu (`SOURCE_VERIFIED` dla ograniczenia formatu; procedura projektu `NEEDS_VERIFICATION`). [2]
+
+### 5. Zapisz wynik i status
+
+Dla każdego użycia zapisz źródło pliku, skrót lub identyfikator artefaktu, interpreter i wersję pakietu, framework, urządzenie, polecenie, oczekiwany rezultat, rzeczywisty rezultat oraz błędy. Sam fakt, że `safe_open` przyjął ścieżkę, nie jest dowodem zgodności modelu z projektem.
+
+## Procedura walidacji i testowania
+
+Poniższa procedura jest planem testu (`PLANNED`), ponieważ w tym środowisku nie wykonano testów lokalnych i nie deklaruje się `LOCALLY_TESTED`.
+
+1. Przygotuj kontrolowany plik `.safetensors` pochodzący ze znanego źródła oraz osobny przypadek z celowo uszkodzonym nagłówkiem. Nie pobieraj ani nie uruchamiaj nieznanych skryptów.
+2. Ustal interpreter, wersję `safetensors`, framework, urządzenie i system. Zapisz te dane przed testem (`NEEDS_VERIFICATION` do czasu wykonania).
+3. Oczekiwany test pozytywny: parser otwiera poprawny plik, lista kluczy odpowiada oczekiwaniu, a odczytany tensor ma uzgodniony dtype i shape. Rzeczywisty wynik: `NEEDS_VERIFICATION`.
+4. Oczekiwany test częściowy: odczyt wybranego zakresu przez `get_slice` odpowiada oczekiwanemu kształtowi i wartościom. Rzeczywisty wynik: `NEEDS_VERIFICATION`.
+5. Oczekiwany test negatywny: zmieniony rozmiar nagłówka, niepoprawny JSON, zakres poza buforem, nakładające się zakresy, luka w buforze lub niezgodne dane powodują kontrolowany błąd parsera albo walidatora. Konkretna klasa wyjątku i komunikat zależą od użytej wersji i bindingu (`NEEDS_VERIFICATION`); nie należy ich zgadywać.
+6. Oczekiwany test semantyczny: osobna kontrola wykrywa niezgodny kształt, dtype albo niedopuszczalne `NaN`/`Inf`, jeśli kontrakt projektu tego wymaga. Rzeczywisty wynik: `NEEDS_VERIFICATION`.
+7. Zapisz log i status każdego przypadku. Bez rzeczywistego wyniku pozostaw `PLANNED` lub `NEEDS_VERIFICATION`, nigdy `LOCALLY_TESTED`.
+
+## Diagnostyka
+
+- **Nie można otworzyć pliku:** sprawdź ścieżkę, uprawnienia, kompletność pobrania, identyfikator artefaktu i zgodność wersji biblioteki. Nie zamieniaj parsera na niezweryfikowany mechanizm deserializacji; przyczyna i rozwiązanie pozostają `NEEDS_VERIFICATION` bez logu.
+- **Błąd nagłówka lub JSON:** sprawdź pierwsze 8 bajtów, rozmiar nagłówka, UTF-8, początek `{`, dopełnienie oraz duplikaty kluczy. Nie edytuj ręcznie pliku modelu bez kopii i bez zapisania skrótu wejściowego.
+- **Nieprawidłowy zakres danych:** sprawdź, czy `BEGIN <= END`, zakresy nie nachodzą na siebie, mieszczą się w buforze i pokrywają go bez luk. To kryterium wynika z opisu formatu; konkretne narzędzie diagnostyczne nie jest dostarczone w tym wpisie (`PLANNED`). [2]
+- **Brak klucza lub niezgodny tensor:** porównaj nazwy, shape i dtype z kontraktem modelu. Nie zakładaj, że podobna nazwa oznacza zgodność.
+- **Błędne wartości mimo poprawnego odczytu:** sprawdź `NaN`, `+Inf`, `-Inf`, źródło modelu, wersję konwersji oraz mapowanie nazw. Poprawny format nie dowodzi poprawności semantycznej wag. [2]
+- **Problem z pamięcią:** użyj tylko udokumentowanych mechanizmów częściowego odczytu, zweryfikuj urządzenie i zmierz zużycie zasobów w konkretnym środowisku. Nie obiecuj „zero-copy” bez doprecyzowania: oficjalny README zastrzega, że transfer z dysku do RAM/GPU nadal może wymagać kopiowania, a nagłówek nie jest zero-copy. [2]
+
+## Ograniczenia
+
+- Safetensors przechowuje tensory i ograniczone metadane, a nie dowolny kod ani dowolny obiekt JSON w `__metadata__`. [2]
+- Bezpieczny format nie gwarantuje zaufanego pochodzenia pliku, poprawności modelu, braku szkodliwych wartości liczbowych, zgodności z konkretnym frameworkiem ani odporności całej aplikacji na odmowę usługi.
+- Dokumentacja główna może prezentować wersję główną wymagającą instalacji ze źródeł, a stabilna wersja pakietu może być inna. Wersję należy sprawdzić w docelowym środowisku (`NEEDS_VERIFICATION`). [1]
+- Konkretne wyjątki, zachowanie bindingu, dostępność `get_slice`, obsługa dtype oraz obsługa urządzeń zależą od wersji i integracji (`NEEDS_VERIFICATION`).
+- Wpis nie zawiera implementacji walidatora, skryptu konwersji, test fixture ani wyników lokalnych. Te elementy mogą powstać później jako osobne, jawnie oznaczone zadanie (`PLANNED`).
+- Mapa repozytorium i dokumentacja zewnętrzna mogą się zmienić; przed użyciem ponownie sprawdź źródła i pliki projektu (`NEEDS_VERIFICATION`).
+
+## Relacja do warstw repozytorium
+
+Ten wpis należy do `knowledge/`, więc opisuje wspólne zasady możliwe do wykorzystania w wielu projektach. Nie zawiera szczegółów instalacji konkretnego projektu, workflow ComfyUI, konkretnego modelu ani wyników jego testów. Kryteria jakości i testowania należy porównywać z odpowiednimi wpisami `standards/`, a szczegóły projektu utrzymywać w `projects/`, bez kopiowania tej wiedzy.
+
+## Źródła
+
+1. Oficjalna dokumentacja Hugging Face Safetensors — opis celu, instalacji, API `safe_open`, `get_tensor`, `get_slice` i zapisu; `SOURCE_VERIFIED`: https://huggingface.co/docs/safetensors/index
+2. Oficjalne repozytorium `huggingface/safetensors`, README — opis układu binarnego, ograniczeń nagłówka, metadanych, zakresów, bufora, dtype, bezpieczeństwa i lazy loading; `SOURCE_VERIFIED`: https://github.com/huggingface/safetensors/blob/main/README.md
+3. Oficjalna dokumentacja źródłowa Safetensors użyta przez Context7 — przykłady `safe_open`, `get_tensor`, `get_slice`; `SOURCE_VERIFIED` jako odsyłacz do oficjalnego repozytorium: https://github.com/huggingface/safetensors/blob/main/docs/source/index.mdx
+
+## Statusy tego wpisu
+
+- Opis formatu i udokumentowanych przykładów API: `SOURCE_VERIFIED`.
+- Zalecenia walidacji strukturalnej i procedura bezpieczeństwa dla agenta: `SOURCE_VERIFIED` dla podstawy wynikającej ze specyfikacji, `PLANNED` dla wykonania walidatora.
+- Walidacja konkretnego pliku, wersji, modelu i środowiska: `NEEDS_VERIFICATION`.
+- Testy lokalne: brak; `LOCALLY_TESTED` nie jest deklarowany.

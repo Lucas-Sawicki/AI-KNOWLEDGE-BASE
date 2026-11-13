@@ -1,0 +1,100 @@
+# [Nazwa projektu]
+
+> **Status dokumentu:** `PLANNED` — szablon do wypełnienia. Nie oznacza działającej implementacji.
+
+## Cel
+
+Opisz problem, oczekiwany rezultat i użytkownika projektu. Nie zmieniaj celu bez decyzji właściciela.
+
+## Zakres
+
+### W zakresie
+
+- `[element 1]`
+- `[element 2]`
+
+### Poza zakresem
+
+- `[element poza zakresem]`
+
+## Statusy informacji
+
+- `SOURCE_VERIFIED` — potwierdzone w oficjalnej dokumentacji lub kodzie źródłowym.
+- `REPORTED` — pochodzące z repozytorium albo raportu użytkownika.
+- `NEEDS_VERIFICATION` — zależne od środowiska, wersji, modelu lub testu.
+- `PLANNED` — propozycja albo element niewdrożony.
+- `LOCALLY_TESTED` — rzeczywisty test z datą, komendą, logiem i wynikiem.
+
+## Architektura
+
+Opisz komponenty, przepływ danych, granice odpowiedzialności i zależności. Dodaj diagram, jeśli ułatwia zrozumienie.
+
+```text
+wejście -> komponent A -> komponent B -> artefakt wyjściowy
+```
+
+Każdy niepotwierdzony komponent oznacz `PLANNED` lub `NEEDS_VERIFICATION`.
+
+## Wymagania
+
+- System: `[do uzupełnienia]`
+- Interpreter/runtime: `[do uzupełnienia po odczycie]`
+- Biblioteki i wersje: `[źródło lub wynik testu]`
+- Sprzęt/GPU/RAM/VRAM: `[wartości zależne od środowiska]`
+- Modele i dane: `[źródło, licencja, format]`
+- Sekrety: `[mechanizm poza repozytorium; nigdy nie wpisuj wartości]`
+
+## Konfiguracja
+
+Użyj jawnego, wersjonowanego manifestu bez sekretów:
+
+```yaml
+project_id: "[id]"
+version: "[wersja lub PLANNED]"
+inputs: []
+models: []
+workflow: null
+output_dir: null
+status: PLANNED
+```
+
+Nie podawaj wersji, ścieżek ani parametrów jako faktów, jeśli nie zostały odczytane lub przetestowane.
+
+## Instalacja i uruchomienie
+
+1. `[sprawdź środowisko]`
+2. `[zainstaluj wyłącznie zatwierdzone zależności]`
+3. `[uruchom minimalny przypadek]`
+4. `[zachowaj log i artefakt]`
+
+Jeśli środowisko jest lokalnym Windows, podaj komendy PowerShell i zaznacz, czy autor miał do niego dostęp. Nie twierdź, że lokalny plik został odczytany bez autoryzowanego kanału.
+
+## Procedura użycia
+
+Opisz wejścia, kolejność kroków, oczekiwany rezultat, kryterium zakończenia i sposób przerwania. Oddziel przygotowanie danych, wykonanie, checkpointy, eksport i publikację, jeśli występują.
+
+## Testowanie
+
+Wymień test statyczny/składni, importu lub inicjalizacji, minimalnego wykonania, błędnych wejść, integracji i regresji po zmianie. Zapisz datę, środowisko, wersje, sprzęt, komendę/workflow, wejścia, wynik, logi i ścieżki artefaktów. Bez dowodu status pozostaje `NEEDS_VERIFICATION`; nie wpisuj przewidywanego wyniku jako wykonanego testu.
+
+## Diagnostyka
+
+Opisz typowe objawy, możliwe przyczyny, bezpieczne sprawdzenia i sposób zebrania logu. Nie ukrywaj błędów pustym `try-except` i nie wykonuj losowych zmian zależności.
+
+## Ograniczenia i ryzyka
+
+- `[ograniczenie sprzętowe]`
+- `[ograniczenie modelu lub wersji]`
+- `[ryzyko danych/licencji/prywatności]`
+- `[brak testu lub brak dostępu do środowiska]`
+
+## Źródła
+
+- `AGENTS.md`: `[sekcja]`
+- oficjalna dokumentacja: `[URL]`
+- kod źródłowy: `[URL/commit]`
+- metoda testowania: `[komenda, data, wynik]`
+
+## Zmiany
+
+- `[data]` — `[opis]` — `[status i źródło]`

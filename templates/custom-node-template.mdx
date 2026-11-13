@@ -1,0 +1,80 @@
+# [Nazwa custom node]
+
+> **Status dokumentu:** `PLANNED` — szablon do wypełnienia. Nie oznacza istnienia, instalacji ani działania modułu.
+
+## Cel
+
+Opisz, jaki problem rozwiązuje node i jaki jest zakres jego odpowiedzialności.
+
+## Statusy informacji
+
+- `SOURCE_VERIFIED` — informacja potwierdzona w oficjalnym źródle.
+- `REPORTED` — informacja z kodu, konfiguracji lub raportu użytkownika.
+- `NEEDS_VERIFICATION` — informacja zależna od środowiska lub testu.
+- `PLANNED` — element proponowany albo niezaimplementowany.
+- `LOCALLY_TESTED` — wynik rzeczywistego testu z logiem i artefaktem.
+
+## Identyfikacja
+
+- Nazwa pakietu: `[do uzupełnienia]`
+- Autor/właściciel: `[do uzupełnienia]`
+- Źródło i wersja: `[repozytorium, commit/tag]`
+- Licencja: `[do uzupełnienia]`
+- Obsługiwana wersja ComfyUI: `[do weryfikacji]`
+- Zależności: `[lista lub brak po sprawdzeniu]`
+
+## Struktura modułu
+
+Udokumentuj rzeczywisty układ plików, np.:
+
+```text
+custom_node/
+├── __init__.py
+├── node.py
+├── requirements.txt
+├── README.md
+└── tests/
+```
+
+Nie przedstawiaj przykładowego układu jako istniejącego bez sprawdzenia repozytorium.
+
+## Rejestracja node
+
+Opisz klasę i wartości wymagane przez ComfyUI: `INPUT_TYPES`, `RETURN_TYPES`, opcjonalne `RETURN_NAMES`, `FUNCTION`, `CATEGORY`, `NODE_CLASS_MAPPINGS` oraz opcjonalne `NODE_DISPLAY_NAME_MAPPINGS`. Wklej tylko kod zgodny z rzeczywistą implementacją i oznacz niezweryfikowane fragmenty jako `PLANNED`.
+
+## Wejścia i wyjścia
+
+| Nazwa | Typ | Wymagane | Walidacja | Opis |
+|---|---|---:|---|---|
+| `[input]` | `[typ]` | `[tak/nie]` | `[reguły]` | `[opis]` |
+
+Opisz zachowanie dla wartości pustych, błędnych typów, wyjątków i dużych danych.
+
+## Instalacja
+
+1. Podaj dokładny katalog docelowy względem `custom_nodes`.
+2. Podaj wymagane zależności wyłącznie po sprawdzeniu pliku instalacyjnego.
+3. Nie zapisuj tokenów ani kluczy w instrukcji.
+4. Wskaż, jak ponownie uruchomić ComfyUI.
+5. Opisz oczekiwany log rejestracji, ale nie przedstawiaj go jako wynik bez testu.
+
+## Testy
+
+Wykonaj i udokumentuj osobno test składni, importu w interpreterze ComfyUI, obecności `NODE_CLASS_MAPPINGS`, wejść i wyjść, wykonania na kontrolowanych danych, błędnych wejść oraz integracji w minimalnym workflow. Dla każdego testu zapisz komendę, środowisko, wynik i artefakt. Bez tego status pozostaje `NEEDS_VERIFICATION`.
+
+## Diagnostyka
+
+Opisz błędy importu, brak zależności, niezgodne typy, brak rejestracji, wyjątki wykonania i problemy z pamięcią. Nie stosuj pustych bloków `try-except`, które ukrywają błąd. Błąd powinien pozostać widoczny w logu z kontekstem.
+
+## Ograniczenia
+
+- `[ograniczenie zależne od implementacji]`
+- `[wymaganie GPU/VRAM, jeśli potwierdzone]`
+- `[brak potwierdzonego wsparcia dla wersji]`
+
+## Źródła i status
+
+- Oficjalne źródło ComfyUI: `[URL]`
+- Repozytorium noda: `[URL/commit]`
+- Metoda testowania: `[komenda i wynik]`
+- Status końcowy: `PLANNED` / `NEEDS_VERIFICATION` / `LOCALLY_TESTED`

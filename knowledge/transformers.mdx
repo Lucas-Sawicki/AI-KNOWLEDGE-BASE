@@ -1,0 +1,203 @@
+# Hugging Face Transformers: modele, tokenizery, pipeline’y i wersjonowanie
+
+> **Status dokumentu:** SOURCE_VERIFIED — informacje API i procedury oparte na oficjalnej dokumentacji Hugging Face oraz weryfikacji Context7.
+> **Testy lokalne:** nie wykonano; nie oznaczam żadnego fragmentu jako `LOCALLY_TESTED`.
+
+## Cel
+
+Ten dokument opisuje wspólne zasady używania biblioteki `transformers` przez agenta AI: wybór i ładowanie modeli, dobór tokenizerów, użycie pipeline’ów, kontrolę urządzenia i cache oraz powtarzalne wersjonowanie. Jest to wiedza współdzielona dla projektów w repozytorium, a nie dokumentacja konkretnego projektu, skryptu ani lokalnej instalacji.
+
+## Zakres i statusy
+
+- `SOURCE_VERIFIED` — informacja potwierdzona w przywołanym źródle oficjalnym.
+- `REPORTED` — informacja zgłoszona przez środowisko lub użytkownika, bez potwierdzenia w tym zadaniu.
+- `NEEDS_VERIFICATION` — punkt wymagający sprawdzenia w konkretnym środowisku, modelu lub wersji.
+- `PLANNED` — zalecane działanie lub test do wykonania później.
+- `LOCALLY_TESTED` — test wykonany lokalnie. **W tym dokumencie nie ma takich wpisów.**
+
+Wersja dokumentacji online może opisywać gałąź `main`. Jeżeli zachowanie zależy od wersji pakietu, modelu, backendu lub sprzętu, agent powinien zweryfikować to ponownie i zapisać konkretną wersję oraz wynik testu.
+
+## Architektura pojęciowa
+
+Transformers dostarcza definicje modeli dla zadań tekstowych, wizji, audio, wideo i multimodalnych, a także narzędzia do inferencji i treningu [1]. Typowy przepływ składa się z następujących elementów:
+
+1. **Konfiguracja** opisuje architekturę i parametry modelu.
+2. **Model** przyjmuje przygotowane tensory i zwraca wyniki zadania.
+3. **Tokenizer lub processor** zamienia wejście na format wymagany przez model i może odtworzyć wynik do formy użytkowej. W modelach multimodalnych `processor` może łączyć tokenizer, ekstraktor cech i image processor [2] [3].
+4. **Pipeline** łączy preprocessing, model i postprocessing w interfejsie zadaniowym [3].
+
+Klasy `AutoConfig`, `AutoModel`, `AutoModelFor...` i `AutoTokenizer` dobierają właściwą klasę na podstawie konfiguracji lub identyfikatora modelu. `from_pretrained()` ładuje konfigurację i, w przypadku modelu, wagi; samo utworzenie modelu z konfiguracji nie ładuje wag [4].
+
+## Wymagania i przygotowanie
+
+Oficjalna strona instalacji podaje, że aktualnie opisana konfiguracja Transformers jest testowana z Pythonem 3.11+ i PyTorch 2.6+ [5]. To wymaganie dokumentacji, nie potwierdzenie zgodności z każdym projektem. Agent musi sprawdzić interpreter, wersję `transformers`, wersję PyTorch, backend sprzętowy oraz wymagania wybranego checkpointu — status `NEEDS_VERIFICATION`.
+
+Zalecane jest użycie izolowanego środowiska. Oficjalny przykład używa `uv`:
+
+```bash
+uv venv .env
+source .env/bin/activate
+uv pip install "transformers[torch]"
+```
+
+Na Windows należy użyć odpowiednika aktywacji właściwego dla używanego interpretera. Nie należy zakładać, że systemowy Python jest tym samym Pythonem co interpreter projektu. Dobór sterownika CUDA i builda PyTorch pozostaje zależny od sprzętu i jest `NEEDS_VERIFICATION`.
+
+Nie instaluj wersji z gałęzi źródłowej bez potrzeby. Dokumentacja rozróżnia instalację stabilnej paczki od instalacji z repozytorium źródłowego i ostrzega, że wersja źródłowa może być niestabilna [5].
+
+## Modele
+
+### Wybór
+
+Agent powinien zacząć od określenia zadania, modality, ograniczeń pamięci, licencji i wymaganego języka. Następnie należy wybrać konkretny checkpoint na Hugging Face Hub i sprawdzić jego kartę modelu, konfigurację, tokenizer/processor, wymagane zależności, rozmiar oraz licencję — `NEEDS_VERIFICATION` dla każdego konkretnego checkpointu.
+
+Nie należy utożsamiać nazwy modelu z gwarantowaną obsługą danej funkcji. Należy sprawdzić mapowanie architektury i klasy zadaniowej w dokumentacji oraz w konfiguracji checkpointu.
+
+### Ładowanie przez klasy Auto
+
+Przykład wzorca udokumentowanego przez Hugging Face:
+
+```python
+from transformers import AutoModel, AutoTokenizer
+
+model_id = "google-bert/bert-base-cased"
+tokenizer = AutoTokenizer.from_pretrained(model_id)
+model = AutoModel.from_pretrained(model_id)
+```
+
+Dla konkretnego zadania można użyć odpowiadającej klasy `AutoModelFor...`, ale jej nazwa i obsługiwane zadania muszą być potwierdzone w dokumentacji danej wersji — `NEEDS_VERIFICATION`. Przy ponownym użyciu zapisuj identyczny identyfikator modelu i revision.
+
+`from_pretrained()` może przyjąć identyfikator repozytorium albo lokalny katalog zawierający pliki zapisane przez `save_pretrained()` [4]. Dla trybu offline przygotuj pliki wcześniej, np. przez `snapshot_download`, a przy ładowaniu użyj `local_files_only=True` lub ustaw `HF_HUB_OFFLINE=1` [5]. Nie wpisuj tokenów dostępowych do dokumentacji ani kodu.
+
+## Tokenizery i procesory
+
+Tokenizer normalizuje i dzieli tekst, stosuje reguły tokenizacji i tokeny specjalne, zamienia wejście na identyfikatory oraz dekoduje identyfikatory z powrotem do tekstu [2]. Najbezpieczniejszym wspólnym wzorcem jest `AutoTokenizer.from_pretrained(model_id)`, ponieważ klasa jest dobierana na podstawie konfiguracji checkpointu [2] [4].
+
+```python
+from transformers import AutoTokenizer
+
+tokenizer = AutoTokenizer.from_pretrained("google-bert/bert-base-cased")
+batch = tokenizer(
+    ["Pierwszy tekst.", "Drugi tekst."],
+    padding=True,
+    truncation=True,
+    max_length=128,
+    return_tensors="pt",
+)
+```
+
+`padding=True` wyrównuje długości w batchu, a `truncation=True` ogranicza sekwencję do ustalonego limitu; właściwy `max_length` zależy od modelu i zadania — `NEEDS_VERIFICATION` [2]. Nie ustawiaj bezrefleksyjnie paddingu, strony paddingu ani tokena `pad_token`; sprawdź konfigurację modelu.
+
+Do dekodowania pojedynczej sekwencji lub batcha używa się `decode()`/odpowiednika batchowego. `skip_special_tokens=True` usuwa tokeny specjalne, ale oczekiwany format tekstu należy potwierdzić dla konkretnego modelu [2].
+
+Dla obrazów, audio, wideo i modeli multimodalnych tokenizer może nie wystarczyć. Użyj procesora lub właściwego image/video processor zgodnie z kartą modelu; szczegóły są `NEEDS_VERIFICATION` dla danego checkpointu.
+
+## Pipeline’y
+
+`pipeline()` jest wysokopoziomową fabryką dla zadań takich jak klasyfikacja tekstu, generowanie tekstu, rozpoznawanie mowy, klasyfikacja obrazu, segmentacja czy ekstrakcja cech [3]. Minimalny wzorzec:
+
+```python
+from transformers import pipeline
+
+classifier = pipeline("text-classification", model="google-bert/bert-base-cased")
+result = classifier("Example text.")
+```
+
+Alias zadania, wymagany model, typ wejścia i kształt wyniku zależą od pipeline’u. Lista obsługiwanych zadań oraz argumenty muszą pochodzić z dokumentacji używanej wersji [3]. Nie twórz własnych nazw zadań na podstawie podobieństwa.
+
+Pipeline może przyjąć jawnie `model`, `tokenizer`, `processor`, `revision`, `device`, `device_map`, `dtype` i inne parametry opisane w referencji [3]. Dla powtarzalności agent powinien jawnie ustalić model i revision, a dla diagnostyki jawnie ustalić urządzenie, zamiast polegać na automatycznym wyborze — `PLANNED`.
+
+Przykład wymuszenia CPU:
+
+```python
+pipe = pipeline(
+    "text-classification",
+    model="google-bert/bert-base-cased",
+    device="cpu",
+)
+```
+
+Dobór `device`, `device_map`, typu danych, batch size i liczby workerów zależy od backendu i pamięci; przed wdrożeniem jest `NEEDS_VERIFICATION`. Nie deklaruj poprawy szybkości bez pomiaru.
+
+## Wersjonowanie i powtarzalność
+
+Rozróżniaj co najmniej cztery wersje:
+
+- wersję pakietu `transformers`;
+- wersje bibliotek backendowych, np. PyTorch;
+- revision repozytorium modelu na Hubie;
+- wersje plików i konfiguracji tokenizera/processorów.
+
+Samo przypięcie wersji pakietu nie przypina checkpointu. Parametr `revision` w `from_pretrained()` może wskazywać branch, tag albo commit. Dla reprodukowalności preferuj niezmienny commit hash lub świadomie utrzymywany tag; ruchomy branch, np. `main`, może zmienić wynik w późniejszym uruchomieniu [5] oraz [6].
+
+W każdym projekcie zapisuj co najmniej:
+
+```text
+transformers: <wersja do potwierdzenia>
+backend: <np. PyTorch i wersja do potwierdzenia>
+model_id: <repozytorium Hub lub ścieżka lokalna>
+model_revision: <commit hash lub tag>
+tokenizer/processor: <identyfikator i revision, jeśli odrębne>
+device: <cpu/cuda/...>
+python: <wersja>
+
+Status: NEEDS_VERIFICATION
+```
+
+Nie wpisuj przykładowej wersji jako faktycznej wersji środowiska. Aktualną wersję należy odczytać w docelowym interpreterze, a następnie zapisać wynik — `PLANNED`.
+
+## Procedura użycia przez agenta AI
+
+1. Zdefiniuj zadanie i modality, bez zakładania, że wybrany checkpoint je obsługuje.
+2. Sprawdź kartę modelu, licencję, pliki, wymagania oraz dokumentację wersji.
+3. Ustal model ID, revision i strategię cache. Dla produkcji preferuj niezmienny commit.
+4. Zweryfikuj tokenizer lub processor kompatybilny z tym samym checkpointem.
+5. Załaduj model i komponent preprocessingowy przez klasy `Auto*` albo jawne klasy zalecane przez kartę modelu.
+6. Wybierz pipeline tylko wtedy, gdy jego zadanie i wynik odpowiadają potrzebie; w przeciwnym razie użyj jawnego przepływu tokenizer → model → postprocessing.
+7. Ustal urządzenie i limity pamięci. Nie przenoś obliczeń do zdalnego backendu bez zgody użytkownika.
+8. Uruchom test dymny na kontrolowanym, niepoufnym wejściu.
+9. Zapisz wersje, revision, parametry oraz wynik testu. Bez wyniku status pozostaje `PLANNED` lub `NEEDS_VERIFICATION`.
+
+## Testowanie
+
+Poniższe testy są procedurą do wykonania, nie raportem wykonania. Wszystkie mają status `PLANNED` i nie są `LOCALLY_TESTED`:
+
+- **Import:** uruchom import `transformers` w docelowym interpreterze i zapisz wersję pakietu.
+- **Tokenizer:** załaduj tokenizer dla przypiętego revision, sprawdź obecność oczekiwanych pól wejściowych i deterministyczne dekodowanie kontrolnego tekstu.
+- **Model:** załaduj model z tym samym revision, sprawdź zgodność typów wejścia i brak nieoczekiwanych brakujących kluczy.
+- **Pipeline:** uruchom minimalny przykład dla wybranego tasku i zapisz typ oraz strukturę wyniku; nie porównuj samej etykiety bez ustalenia modelu i revision.
+- **Offline/cache:** po wcześniejszym pobraniu uruchom ładowanie z `local_files_only=True` i potwierdź, że brak sieci nie powoduje pobierania.
+- **Zasoby:** zmierz czas, RAM/VRAM i rozmiar batcha na docelowym sprzęcie. Wyniki są `NEEDS_VERIFICATION` do czasu wykonania.
+
+## Diagnostyka
+
+**Błąd importu lub konflikt zależności.** Sprawdź interpreter, wersję Python, `transformers`, backend oraz zależności modelu w tym samym środowisku. Nie naprawiaj przez losowe podbijanie wersji; najpierw odtwórz wymagania checkpointu — `NEEDS_VERIFICATION`.
+
+**Nie znaleziono pliku modelu lub tokenizera.** Sprawdź ID repozytorium, revision, uprawnienia, cache i połączenie. W trybie offline upewnij się, że wymagane pliki zostały wcześniej pobrane. `local_files_only=True` celowo nie pobierze brakujących plików [5].
+
+**Niezgodność rozmiaru wejścia lub tokenów.** Sprawdź klasę tokenizera, tokeny specjalne, padding, truncation, `max_length` i wymagania modelu. Nie kopiuj konfiguracji z innego checkpointu.
+
+**Brak pamięci lub niska wydajność.** Zmniejsz batch size, długość wejścia albo wybierz mniejszy checkpoint dopiero po potwierdzeniu wpływu na jakość. Sprawdź `device`, typ danych i mapowanie modelu; nie deklaruj skuteczności optymalizacji bez pomiaru.
+
+**Różne wyniki między uruchomieniami.** Porównaj wersje pakietów, revision modelu, konfigurację generowania, wejście, urządzenie i pre-/postprocessing. Ruchomy branch lub nieprzypięte zależności są podejrzanym źródłem różnic — `NEEDS_VERIFICATION`.
+
+**Nieznany kod z repozytorium modelu.** Nie włączaj wykonywania zdalnego kodu bez zaufania do repozytorium i świadomej oceny ryzyka. Dokładne zachowanie parametru zależy od klasy i wersji — `NEEDS_VERIFICATION`.
+
+## Ograniczenia
+
+- Dokument nie wybiera konkretnego modelu dla projektu i nie potwierdza licencji żadnego checkpointu.
+- Nie gwarantuje, że każda wersja `transformers` obsługuje identyczne argumenty, klasy i zadania.
+- Nie zastępuje karty modelu, referencji API ani instrukcji backendu.
+- Przykłady używają identyfikatorów z dokumentacji; nie stanowią raportu wykonania w tym repozytorium.
+- Nie opisano wyników lokalnych, benchmarków ani zgodności z Windows/ComfyUI, ponieważ nie zostały tutaj przetestowane (`NEEDS_VERIFICATION`).
+- Aktualne limity pamięci, dostępność akceleratora i szybkość zależą od środowiska (`NEEDS_VERIFICATION`).
+
+## Źródła
+
+[1]: https://huggingface.co/docs/transformers/index "Transformers — dokumentacja główna"
+[2]: https://huggingface.co/docs/transformers/main/en/fast_tokenizers "Transformers — tokenizery"
+[3]: https://huggingface.co/docs/transformers/main/en/main_classes/pipelines "Transformers — pipeline API"
+[4]: https://huggingface.co/docs/transformers/main/en/model_doc/auto "Transformers — Auto classes"
+[5]: https://huggingface.co/docs/transformers/installation "Transformers — instalacja i tryb offline"
+[6]: https://github.com/huggingface/transformers/blob/main/docs/source/en/model_sharing.md "Transformers — udostępnianie modeli i revision"
+
+**Status źródeł:** `SOURCE_VERIFIED` dla stron oficjalnych otwartych w tym zadaniu; `NEEDS_VERIFICATION` dla zachowania zależnego od konkretnego środowiska, checkpointu lub przyszłej wersji. `REPORTED` i `LOCALLY_TESTED` nie zostały użyte jako opis wykonanych testów.

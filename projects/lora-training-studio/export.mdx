@@ -1,0 +1,280 @@
+# LoRA Training Studio — eksport
+
+## Cel
+
+Ten dokument opisuje bezpieczny, powtarzalny eksport adaptera LoRA po zakończeniu treningu. Eksport oznacza tu wybór właściwego checkpointu, zapis adaptera w formacie obsługiwanym przez docelowe narzędzie, kontrolę artefaktu oraz przygotowanie go do użycia w zgodnym pipeline’ie lub workflow.
+
+Adapter LoRA nie jest samodzielnym modelem. Zależy od modelu bazowego, architektury, komponentów objętych adapterem, nazw kluczy oraz narzędzia używanego do zapisu i odczytu. Konkretna zgodność eksportu musi być sprawdzona dla wybranego modelu i środowiska. Ogólna zasada ma status `SOURCE_VERIFIED` na podstawie dokumentacji PEFT i Diffusers [1] [2].
+
+**Status dokumentu:** `REPORTED` dla założeń wynikających z repozytorium i polecenia użytkownika; `SOURCE_VERIFIED` dla twierdzeń potwierdzonych w oficjalnych źródłach; `PLANNED` dla procedur, których repozytorium jeszcze nie implementuje; `NEEDS_VERIFICATION` dla ustawień zależnych od modelu, GPU, danych, wersji lub narzędzia; `LOCALLY_TESTED` nie jest deklarowany.
+
+## Zakres i granice
+
+Dokument obejmuje:
+
+- wybór checkpointu przeznaczonego do eksportu;
+- rozdzielenie danych, konfiguracji treningu, checkpointów i finalnego artefaktu;
+- przygotowanie manifestu eksportu;
+- zapis adaptera w formacie zgodnym z wybranym narzędziem;
+- kontrolę pliku, tensorów, metadanych i relacji z modelem bazowym;
+- przygotowanie do użycia w Diffusers lub ComfyUI;
+- diagnostykę typowych błędów;
+- plan testów bez udawania wykonanych wyników.
+
+Poza zakresem pozostają: wybór modelu bazowego bez decyzji użytkownika, automatyczne uruchamianie treningu, automatyczne pobieranie modeli, publikacja artefaktów, modyfikacja lokalnej instalacji ComfyUI, automatyczne uruchamianie Kaggle oraz gwarancja jakości generowanych wyników. Te elementy mają status `PLANNED`, `REPORTED` albo `NEEDS_VERIFICATION`, zależnie od konkretnego twierdzenia.
+
+## Architektura artefaktów
+
+Eksport należy traktować jako ostatni etap poniższego przepływu:
+
+```text
+przygotowanie danych i manifestu
+    -> konfiguracja treningu
+    -> trening
+    -> checkpointy i logi
+    -> wybór checkpointu
+    -> walidacja checkpointu
+    -> eksport adaptera
+    -> walidacja pliku eksportowego
+    -> test w zgodnym pipeline’ie lub workflow
+```
+
+Każdy etap ma osobny cel:
+
+1. **Dane** — obrazy, teksty, captiony, manifest, licencja i kryteria kontroli jakości.
+2. **Konfiguracja treningu** — model bazowy, komponenty, target modules, hiperparametry, seed, wersje narzędzi i komenda.
+3. **Checkpointy** — artefakty pośrednie umożliwiające porównanie albo wznowienie, jeśli wybrany stos zapisuje wymagany stan.
+4. **Eksport** — adapter przeznaczony do użycia, wraz z metadanymi i odniesieniem do modelu bazowego.
+
+Checkpoint nie jest automatycznie finalnym eksportem. Nie należy wybierać go wyłącznie po nazwie pliku ani zakładać, że najpóźniejszy checkpoint jest najlepszy. Kryterium wyboru powinno być zapisane w logu eksperymentu (`PLANNED` / `NEEDS_VERIFICATION`).
+
+## Wymagania
+
+### Model bazowy i zgodność
+
+Przed eksportem należy zapisać identyfikator lub ścieżkę modelu bazowego, jego wariant, komponenty objęte adapterem oraz źródło modelu. W przypadku Diffusers oficjalny przykład pokazuje zapis i późniejsze ładowanie wag LoRA w połączeniu z modelem bazowym [2]. Nie oznacza to zgodności z każdą rodziną modeli, wersją biblioteki ani każdym workflow (`NEEDS_VERIFICATION`).
+
+Należy również zapisać:
+
+- architekturę modelu;
+- komponenty, do których dołączono adapter, np. UNet lub text encoder, jeśli dotyczy;
+- `target_modules`;
+- rank i skalę adaptera;
+- wersję oraz źródło narzędzia treningowego;
+- identyfikator checkpointu i krok/epokę;
+- hash pliku, jeśli projekt przyjął taką praktykę.
+
+Wartości rank, alpha, target modules, dtype, nazwy kluczy i sposób scalania wag są zależne od modelu oraz narzędzia. Nie należy kopiować wartości z przykładu jako konfiguracji uniwersalnej (`NEEDS_VERIFICATION`).
+
+### Format pliku
+
+`Safetensors` jest formatem przeznaczonym do bezpiecznego przechowywania tensorów i udostępnia odczyt przez `safe_open` [3]. Preferowanie tego formatu jest rekomendacją projektową, ale jego użycie musi być wspierane przez wybrany stos i docelowe narzędzie (`NEEDS_VERIFICATION`). Samo rozszerzenie `.safetensors` nie dowodzi, że plik jest poprawnym adapterem ani że pasuje do modelu bazowego.
+
+Nie zapisuj w artefakcie ani w manifeście sekretów, tokenów, haseł, kluczy API ani prywatnych danych. Przed publikacją sprawdź licencję modelu, danych i wyniku.
+
+### Lokalne środowisko Windows
+
+Repozytorium wskazuje lokalną instalację ComfyUI pod ścieżką:
+
+```text
+E:\AI AGENTS\ComfyUI_windows_portable
+```
+
+Wskazany interpreter środowiska ComfyUI to:
+
+```text
+E:\AI AGENTS\ComfyUI_windows_portable\python_embeded\python.exe
+```
+
+Są to informacje `REPORTED` z zasad repozytorium. Nie oznaczają, że Manus ma dostęp do tej ścieżki. Nie potwierdzono istnienia instalacji, jej wersji, wersji sterownika, modelu GPU ani dostępnych plików (`NEEDS_VERIFICATION`). Nie należy twierdzić, że ścieżka została odczytana lub zmodyfikowana.
+
+Przed lokalnym testem użytkownik powinien ręcznie sprawdzić interpreter i zależności, na przykład w PowerShellu:
+
+```powershell
+$python = 'E:\AI AGENTS\ComfyUI_windows_portable\python_embeded\python.exe'
+Test-Path $python
+& $python --version
+& $python -c "import torch; print(torch.__version__); print(torch.cuda.is_available())"
+```
+
+Powyższa sekwencja jest instrukcją do ręcznego uruchomienia (`PLANNED`), a nie wynikiem testu. Konkretne polecenia mogą wymagać dostosowania do instalacji użytkownika (`NEEDS_VERIFICATION`).
+
+## Manifest eksportu
+
+Przed zapisem artefaktu przygotuj jawny manifest. Minimalny szablon (`PLANNED`) może wyglądać tak:
+
+```yaml
+artifact:
+  output_path: "<ścieżka eksportu>"
+  format: "<format potwierdzony dla narzędzia>"
+  filename: "<nazwa bez sekretów>"
+  sha256: "<wypełnij po zapisie, jeśli stosowane>"
+source:
+  base_model: "<identyfikator lub ścieżka>"
+  base_model_source: "<oficjalne źródło lub lokalny identyfikator>"
+  checkpoint: "<ścieżka lub identyfikator>"
+  step_or_epoch: "<wartość z logu>"
+training:
+  framework: "<narzędzie>"
+  framework_version: "<odczytaj w środowisku>"
+  components: "<komponenty objęte adapterem>"
+  target_modules: "<lista z konfiguracji>"
+  rank: "<wartość z konfiguracji>"
+  alpha: "<wartość z konfiguracji>"
+validation:
+  file_read: "<pending/ok/error>"
+  tensor_keys_checked: "<pending/ok/error>"
+  inference_checked: "<pending/ok/error>"
+  comfyui_checked: "<pending/ok/error>"
+status: "PLANNED"
+```
+
+Nie wypełniaj pól wersją, wynikiem ani ścieżką, których nie odczytano. Wartości zależne od modelu lub GPU pozostaw jako `NEEDS_VERIFICATION`, dopóki nie zostaną potwierdzone w konkretnym środowisku.
+
+## Procedura eksportu
+
+### 1. Przygotuj dane wejściowe do eksportu
+
+Status: `PLANNED` / `NEEDS_VERIFICATION`.
+
+1. Zidentyfikuj model bazowy i checkpoint.
+2. Odczytaj konfigurację treningu oraz log wskazujący krok lub epokę.
+3. Potwierdź, że checkpoint został zapisany kompletnie.
+4. Sprawdź, czy wybór checkpointu odpowiada wcześniej zapisanym kryteriom.
+5. Ustal katalog wyjściowy i upewnij się, że nie nadpiszesz innego artefaktu.
+6. Przygotuj manifest i zapisz relację checkpoint–model bazowy–konfiguracja.
+
+Jeżeli nie ma logu albo nie można odtworzyć konfiguracji, eksport może być technicznie możliwy, ale jego identyfikowalność pozostaje `NEEDS_VERIFICATION`.
+
+### 2. Zapisz adapter
+
+Status: `PLANNED` / `NEEDS_VERIFICATION`.
+
+Użyj mechanizmu zapisu właściwego dla wybranego frameworka. W PEFT udokumentowanym mechanizmem zapisu adaptera jest `save_pretrained`; wczytanie wymaga następnie odpowiedniego modelu bazowego i konfiguracji [1]. W Diffusers oficjalny przykład pokazuje plik wag LoRA oraz późniejsze `load_lora_weights` w pipeline’ie [2].
+
+Nie należy wpisywać do tej dokumentacji konkretnej komendy eksportu, nazwy pliku, argumentów ani wersji bez potwierdzenia, że wybrany skrypt i model używają danego API. Przykładowy pseudoprzebieg:
+
+```text
+wczytaj checkpoint zgodnym narzędziem
+sprawdź model bazowy i komponenty
+zapisz wyłącznie wagi adaptera do katalogu eksportu
+zapisz konfigurację i metadane obok artefaktu
+nie publikuj ani nie przesyłaj pliku bez zgody użytkownika
+```
+
+### 3. Sprawdź plik i metadane
+
+Status: `PLANNED` / `NEEDS_VERIFICATION`.
+
+Po zapisie sprawdź:
+
+- czy plik istnieje i ma niezerowy rozmiar;
+- czy można go odczytać przez narzędzie obsługujące dany format;
+- czy liczba i nazwy tensorów odpowiadają konfiguracji;
+- czy dtype i kształty tensorów są akceptowane przez docelowy stos;
+- czy metadane nie wskazują innego modelu bazowego lub komponentu;
+- czy hash, jeśli stosowany, został zapisany w manifeście;
+- czy eksport nie zawiera niezamierzonego pełnego modelu zamiast adaptera.
+
+Dla `safetensors` można użyć oficjalnego API `safe_open` do odczytu kluczy i tensorów [3]. Sam odczyt pliku nie potwierdza zgodności z modelem ani jakości treningu.
+
+### 4. Przetestuj użycie w Diffusers
+
+Status: `PLANNED` / `NEEDS_VERIFICATION`.
+
+Jeżeli wybrany adapter i pipeline są zgodne z Diffusers, załaduj model bazowy, załaduj adapter zgodnie z aktualną dokumentacją i wykonaj kontrolowane porównanie:
+
+1. model bazowy bez adaptera;
+2. ten sam model z aktywnym adapterem;
+3. model z adapterem wyłączonym lub usuniętym.
+
+Zachowaj identyczny prompt, seed, rozdzielczość i pozostałe parametry porównania, o ile wybrany pipeline je obsługuje. Nie deklaruj wyniku jakościowego bez zapisanych artefaktów lub logu. Konkretne API, nazwa wagi i sposób aktywacji pozostają zależne od wersji (`NEEDS_VERIFICATION`).
+
+### 5. Przetestuj użycie w ComfyUI
+
+Status: `PLANNED` / `NEEDS_VERIFICATION`.
+
+Oficjalna dokumentacja ComfyUI opisuje węzeł LoRA Loader oraz domyślny katalog `ComfyUI\\models\\loras` [4]. Przed użyciem należy potwierdzić, że:
+
+- plik ma format obsługiwany przez zainstalowaną wersję ComfyUI;
+- model bazowy i workflow odpowiadają komponentom adaptera;
+- plik został umieszczony w katalogu skonfigurowanym przez użytkownika;
+- węzeł ładuje właściwy plik, a wartości siły modelu i CLIP są jawnie ustawione;
+- workflow działa z adapterem i bez niego.
+
+Nie zakładaj, że każda LoRA wyeksportowana przez dowolny trainer działa w każdym workflow ComfyUI. Kompatybilność konkretnego artefaktu trzeba sprawdzić lokalnie.
+
+## Testowanie
+
+W ramach przygotowania tego dokumentu nie wykonano treningu, eksportu, odczytu adaptera, testu Diffusers, testu workflow ComfyUI ani uruchomienia Kaggle. Nie deklaruję statusu `LOCALLY_TESTED` ani żadnego wyniku.
+
+Plan minimalnej weryfikacji (`PLANNED`):
+
+1. odczytaj interpreter, wersje bibliotek, sterownik i dostępność GPU;
+2. zidentyfikuj model bazowy, checkpoint, komponenty i konfigurację;
+3. wykonaj eksport do pustego katalogu roboczego;
+4. sprawdź istnienie pliku, rozmiar, hash i możliwość odczytu;
+5. sprawdź klucze, kształty tensorów i metadane;
+6. zapisz manifest eksportu;
+7. wykonaj test w zgodnym pipeline’ie z porównaniem bazowym;
+8. wykonaj test docelowego workflow ComfyUI, jeśli jest celem użycia;
+9. zachowaj komendy, wersje, sprzęt, logi, błędy i ścieżki artefaktów.
+
+Dopiero wynik rzeczywiście wykonanego testu z zapisanym dowodem może otrzymać `LOCALLY_TESTED`. Plan testu nie jest wynikiem testu.
+
+## Diagnostyka
+
+### Plik nie istnieje albo jest pusty
+
+Sprawdź katalog wyjściowy, uprawnienia, ścieżkę i komunikat narzędzia. Potwierdź, czy eksport zakończył się bez wyjątku. Nie twierdź, że plik został zapisany, dopóki nie ma potwierdzenia w środowisku (`NEEDS_VERIFICATION`).
+
+### Nie można odczytać pliku
+
+Sprawdź, czy rozszerzenie odpowiada rzeczywistemu formatowi, czy zapis nie został przerwany oraz czy narzędzie odczytu obsługuje ten format. Dla `safetensors` użyj odczytu zgodnego z oficjalnym API [3]. Nie naprawiaj pliku przez zmianę rozszerzenia.
+
+### Nieznane klucze lub niezgodne kształty tensorów
+
+Porównaj model bazowy, architekturę, komponenty, `target_modules`, rank, wersję frameworka i sposób zapisu. Nie usuwaj kluczy ani nie zmieniaj kształtów bez wiedzy, że wybrany framework przewiduje taką konwersję. Zgodność pozostaje `NEEDS_VERIFICATION`.
+
+### Adapter ładuje się, ale nie daje widocznego efektu
+
+Potwierdź aktywację adaptera, właściwą skalę, model bazowy, prompt lub token wyzwalający oraz identyczność pozostałych parametrów porównania. Sprawdź wynik z adapterem i bez niego. Brak widocznego efektu nie jest sam w sobie dowodem poprawności ani błędu.
+
+### Błąd pamięci GPU
+
+Zapisz pełny komunikat, etap, model, rozdzielczość, batch size, dtype i ustawienia oszczędzania pamięci. PyTorch udostępnia mechanizmy snapshotów pamięci CUDA do diagnostyki alokacji i historii zdarzeń [5]. Nie wyznaczaj bezpiecznego batch size na podstawie ogólnej tabeli; parametr zależy od modelu, GPU i konfiguracji (`NEEDS_VERIFICATION`).
+
+### Błąd ścieżki Windows
+
+Ścieżkę `E:\AI AGENTS\ComfyUI_windows_portable` sprawdź ręcznie na komputerze użytkownika. Manus nie ma automatycznego dostępu do lokalnych ścieżek Windows i nie uruchamia tam poleceń bez autoryzowanego kanału.
+
+### Kaggle lub inna usługa zewnętrzna
+
+Eksport do lub z usługi zewnętrznej wymaga osobnej decyzji użytkownika. Nie zakładaj automatycznego uruchomienia, automatycznego przesłania danych, dostępności GPU ani braku kosztów. Aktualne limity, prywatność, ustawienia Internetu i ewentualne koszty sprawdź w oficjalnej dokumentacji usługi (`NEEDS_VERIFICATION`).
+
+## Ograniczenia
+
+- Adapter nie zastępuje modelu bazowego.
+- Format pliku nie gwarantuje zgodności z modelem, komponentem ani workflow.
+- Hiperparametry eksportu i treningu mogą zależeć od modelu, GPU, frameworka i wersji.
+- Sam zapis adaptera nie dowodzi jakości ani poprawności treningu.
+- Brak dostępu do lokalnego Windows oznacza brak potwierdzenia instalacji ComfyUI.
+- Kaggle i inne usługi zewnętrzne nie są automatycznie uruchamiane i nie mają założonego kosztu ani dostępności.
+- Dokumentacja nie zastępuje konfiguracji eksperymentu, manifestu, logów i testu w docelowym środowisku.
+- Nie publikuj ani nie udostępniaj danych lub artefaktów bez sprawdzenia licencji i zgody.
+
+## Statusy informacji
+
+- `SOURCE_VERIFIED` — twierdzenie potwierdzone w przywołanym źródle oficjalnym. Nie oznacza lokalnego uruchomienia.
+- `REPORTED` — informacja wynikająca z repozytorium, polecenia użytkownika albo dostarczonego raportu, bez niezależnego testu w tej sesji.
+- `NEEDS_VERIFICATION` — ustawienie albo wniosek zależny od konkretnego modelu, GPU, danych, wersji, narzędzia, usługi lub środowiska.
+- `PLANNED` — zamierzona procedura lub element projektu, który nie został jeszcze zaimplementowany albo potwierdzony.
+- `LOCALLY_TESTED` — wynik rzeczywistego testu lokalnego z zapisanym wynikiem i identyfikowalną konfiguracją. Dla tego dokumentu status nie występuje.
+
+## Źródła oficjalne
+
+[1]: https://huggingface.co/docs/peft/index "Hugging Face PEFT documentation"
+[2]: https://huggingface.co/docs/diffusers/main/en/tutorials/using_peft_for_inference "Hugging Face Diffusers LoRA documentation"
+[3]: https://huggingface.co/docs/safetensors/index "Hugging Face Safetensors documentation"
+[4]: https://docs.comfy.org/built-in-nodes/LoraLoader "ComfyUI LoRA Loader documentation"
+[5]: https://docs.pytorch.org/docs/stable/torch_cuda_memory.html "PyTorch CUDA memory documentation"

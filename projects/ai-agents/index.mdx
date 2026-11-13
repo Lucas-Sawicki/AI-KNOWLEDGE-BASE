@@ -1,0 +1,19 @@
+# AI Agents — Architektura i Standardy
+
+## Cel
+Centralna dokumentacja architektury agentów AI, systemów RAG, integracji MCP oraz bezpieczeństwa operacyjnego.
+
+## Standardy bezpieczeństwa i architektury (POTWIERDZONE)
+W oparciu o projekt *Android AI*, przyjęto następujące fundamenty:
+- **Fail-closed:** Każdy brak weryfikacji lub dowodu skutkuje wstrzymaniem działania.
+- **Isolacja:** Rozdzielenie procesów wykonawczych (np. `llm` vs `główny`) oraz kontrola wyjść sieciowych (`EgressGuard`).
+- **Weryfikacja:** Rozróżnienie statusów `[REPORTED]` (informacja użytkownika) oraz `[VERIFIED]` (potwierdzony testami/kodem).
+- **Kontrola zmian:** Każda zmiana architektury lub narzędzi wymaga manifestu zmian i akceptacji.
+
+## Moduły
+- [Architektura](./architecture.mdx) — model zarządzania zadaniami i stanem (np. *TrustStateMachine*).
+- [MCP Servers](./mcp-servers.mdx) — integracje narzędzi i zewnętrznych serwisów.
+- [Memory & RAG](./memory-rag.mdx) — strategie zarządzania kontekstem i danymi.
+
+## Status projektu
+Dokumentacja w trakcie wdrożenia. Standardy operacyjne bazują na wytycznych z projektu *Android AI*.

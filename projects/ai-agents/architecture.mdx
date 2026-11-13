@@ -1,0 +1,44 @@
+# AI Agents — Architektura
+
+## Cel i zakres
+
+Ten dokument opisuje architekturę agentów AI w centralnej bazie wiedzy. Obejmuje lokalnego agenta, brokera narzędzi, pamięć zadania, walidację, dowody wykonania, integracje MCP oraz opcjonalne dostawcy modeli. Nie opisuje działającej implementacji konkretnej aplikacji Android.
+
+## Status informacji
+
+- `SOURCE_VERIFIED` — informacja potwierdzona w oficjalnej dokumentacji zewnętrznej.
+- `REPORTED` — ustalenie pochodzące z analizy projektu Android AI, bez dostępnego kodu lub niezależnego logu testów.
+- `NEEDS_VERIFICATION` — wymagane porównanie z rzeczywistą implementacją.
+- `PLANNED` — propozycja architektoniczna, jeszcze niewdrożona.
+
+## Model logiczny
+
+Agent powinien być projektowany jako rozdzielenie odpowiedzialności:
+
+1. **Interfejs zadania** przyjmuje cel i ograniczenia użytkownika.
+2. **TaskContext** przechowuje wyłącznie kontekst potrzebny do bieżącego zadania.
+3. **Planner/validator** tworzy lub sprawdza deklaratywną procedurę.
+4. **Policy Engine** ocenia ryzyko, zgodę, dowody, integralność i budżet zasobów.
+5. **Broker/PEP** jest jedyną bramą do narzędzi i egzekwuje decyzję polityki.
+6. **Tool adapters** wykonują ograniczone operacje i zwracają wynik oraz dowód.
+7. **Audit/Evidence store** zapisuje decyzje, identyfikatory, hashe i rezultaty.
+
+To rozdzielenie jest `REPORTED` na podstawie analizy Android AI i wymaga weryfikacji z kodem przed uznaniem za implementację.
+
+## Zasady bezpieczeństwa
+
+Agent powinien działać zgodnie z zasadą fail-closed: brak zgody, dowodu, znanej wersji, budżetu lub integralności nie może prowadzić do wykonania operacji. Wynik LLM jest niezaufanym wejściem i nie może samodzielnie instalować kodu, zmieniać polityki ani omijać brokera.
+
+Zalecany model stanów to `PLANNED`: `NORMAL`, `REAUTH_REQUIRED`, `RESTRICTED`, `QUARANTINED`, `KEY_INVALID`, `INTEGRITY_UNKNOWN` i `KILL_SWITCHED`. Każdy stan powinien mieć jawny katalog dozwolonych operacji. Implementacja `TrustStateMachine` nie jest obecnie potwierdzona.
+
+## MCP w architekturze
+
+MCP rozdziela warstwę danych i transportu (`SOURCE_VERIFIED`). Warstwa danych używa JSON-RPC i udostępnia między innymi tools, resources, prompts oraz negocjację możliwości. Warstwa transportu definiuje sposób połączenia, ramkowanie i autoryzację. Agent nie powinien utożsamiać dostępności narzędzia z prawem do jego użycia; decyzja brokera i polityka danych pozostają nadrzędne.
+
+## Zmiana dostawcy i TaskContext
+
+Przeniesienie kontekstu do innego dostawcy powinno ponownie sklasyfikować każdy fragment danych, zastosować nową politykę dostawcy i zbudować nowy payload. Nie należy przesyłać poprzedniego payloadu bez ponownej oceny. Jest to rekomendacja `PLANNED`, wynikająca z analizy Android AI.
+
+## Ograniczenia i testowanie
+
+Repozytorium centralne nie zawiera obecnie potwierdzonej implementacji wszystkich opisanych modułów. Przejście od architektury do statusu `VERIFIED` wymaga kodu, powtarzalnego buildu, testów negatywnych, dowodów audytowych i niezależnego odtworzenia wyników.

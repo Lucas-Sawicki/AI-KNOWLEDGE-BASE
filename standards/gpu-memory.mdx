@@ -1,0 +1,102 @@
+# Standard zarządzania VRAM/RAM, OOM, dtype i offload
+
+**Status dokumentu:** `SOURCE_VERIFIED` dla twierdzeń oznaczonych źródłami oficjalnymi; `REPORTED` dla obserwacji pochodzących z repozytorium; `PLANNED` dla zaleceń organizacyjnych do wdrożenia; `NEEDS_VERIFICATION` dla elementów zależnych od konkretnego sprzętu, wersji lub projektu. Dokument nie deklaruje `LOCALLY_TESTED`.
+
+## Cel
+
+Ten standard definiuje wspólne zasady planowania i diagnozowania pamięci GPU (VRAM) oraz CPU (RAM) w projektach AI. Ma pomóc agentowi AI odróżnić pamięć zajętą przez aktywne tensory od pamięci zarezerwowanej przez allocator, ograniczać ryzyko `OutOfMemoryError` (OOM), dobierać `dtype` z uwzględnieniem poprawności oraz planować przenoszenie danych między CPU i GPU. Jest to standard i procedura decyzyjna, a nie implementacja konkretnego projektu.
+
+## Zakres i granice
+
+Standard obejmuje procesy korzystające z PyTorch i urządzeń CUDA, w szczególności inferencję, trening, ładowanie modeli, pracę z batchami oraz kontrolowane przenoszenie modułów między CPU i GPU. Nie opisuje szczegółów ComfyUI, LoRA Training Studio, pojedynczych modeli ani konfiguracji Kaggle; te informacje powinny pozostać w dokumentacji właściwego projektu. Zgodnie z `AGENTS.md` pierwszeństwo ma lokalny GPU, następnie lokalny RAM, a użycie zdalnego backendu wymaga zgody użytkownika. **Status: `REPORTED`** — zasada wynika z lokalnego `AGENTS.md`.
+
+## Zasady normatywne
+
+1. **Mierz, zanim zmienisz konfigurację.** Rejestruj urządzenie, rozmiar batcha, kształty wejść, `dtype`, `torch.cuda.memory_allocated()`, `torch.cuda.memory_reserved()` oraz — jeżeli potrzebny jest szczyt — odpowiednie wartości `max_memory_allocated()` i `max_memory_reserved()`. PyTorch rozróżnia pamięć zajętą przez tensory od pamięci zarządzanej przez caching allocator. **Status: `SOURCE_VERIFIED` [1].**
+2. **Nie traktuj `nvidia-smi` jako jedynego dowodu wycieku tensorów.** Nieużywana pamięć utrzymywana przez caching allocator może nadal wyglądać jak zajęta w `nvidia-smi`. `torch.cuda.empty_cache()` zwalnia nieużywaną pamięć podręczną dla innych aplikacji, lecz nie zwalnia pamięci zajętej przez aktywne tensory i nie zwiększa dostępnej pamięci PyTorch dla tych tensorów. **Status: `SOURCE_VERIFIED` [1].**
+3. **Zmniejszaj zapotrzebowanie przed strojeniem allocatora.** Najpierw ogranicz batch size, długość/rozdzielczość wejścia, liczbę równoległych zadań, zbędne kopie i czas życia referencji. Parametry allocatora rozważaj dopiero po pomiarze; `max_split_size_mb` dokumentacja PyTorch wskazuje jako rozwiązanie ostatniej szansy dla OOM z dużą liczbą nieaktywnych podzielonych bloków i tylko dla backendu `native`. **Status: `SOURCE_VERIFIED` [1].**
+4. **Oddziel problem pojemności od fragmentacji.** OOM przy wysokim `allocated` oznacza przede wszystkim brak miejsca na aktywne tensory; wysoki `reserved` przy niższym `allocated` wymaga analizy caching allocatora i wzorca alokacji, a nie automatycznego zwiększania RAM. Używaj `memory_stats()` lub `memory_snapshot()` do pogłębionej analizy, gdy podstawowe metryki nie wystarczają. **Status: `SOURCE_VERIFIED` [1].**
+5. **Dobieraj `dtype` jawnie i sprawdzaj poprawność.** `torch.float16` i `torch.bfloat16` mogą ograniczyć rozmiar danych względem `torch.float32`, ale dobór musi uwzględniać zakres dynamiczny, stabilność operacji, obsługę sprzętu i akceptowalną jakość. Nie zakładaj, że każdy operator ma identyczne zachowanie w niższej precyzji. **Status: `SOURCE_VERIFIED` [2]; wpływ na konkretną jakość i sprzęt: `NEEDS_VERIFICATION`.**
+6. **W preferowanym trybie używaj autocast zamiast ręcznego `half()`/`bfloat16()` modelu bez uzasadnienia.** Oficjalna dokumentacja opisuje autocast jako dobieranie typu per operator; zaleca objęcie nim forward i obliczenia straty, a nie backward. Przy treningu z `float16` oceniaj także potrzebę `GradScaler`; dla CPU z `bfloat16` dokumentacja opisuje użycie autocast bez skalera. Nowsze wywołania należy sprawdzać w dokumentacji wersji używanej przez projekt; nie zakładaj zgodności aliasów bez weryfikacji. **Status: `SOURCE_VERIFIED` [2]; zgodność z lokalną wersją: `NEEDS_VERIFICATION`.**
+7. **Offload jest jawnie sterowanym transferem, nie magicznym zwiększeniem VRAM.** Przeniesienie modułu lub tensorów na CPU zmniejsza ich obecność w VRAM kosztem RAM, transferów i czasu. `Module.to(...)`, `Module.cpu()` i `Module.cuda()` modyfikują moduł in-place; przenoś parametry, bufory i wejścia w sposób spójny, pilnując urządzenia oraz `dtype`. Konkretna strategia offloadu, jej narzut i bezpieczne punkty transferu zależą od architektury projektu. **Status: `SOURCE_VERIFIED` dla semantyki metod [3]; strategia i narzut: `NEEDS_VERIFICATION`.**
+8. **Nie deklaruj dostępności rozwiązania bez testu na docelowym środowisku.** Wpisuj wersję PyTorch/CUDA, model, GPU, dostępny VRAM/RAM, parametry wejścia, metryki szczytowe, czas oraz wynik jakości. W tym dokumencie brak wyników środowiska lokalnego, więc nie używaj statusu `LOCALLY_TESTED`.
+
+## Minimalna architektura zarządzania pamięcią
+
+Przepływ powinien mieć cztery jawne warstwy:
+
+- **Budżet:** przed uruchomieniem ustal urządzenie, dostępny VRAM/RAM, model, batch, kształty wejść i docelowy `dtype`. Zostaw margines zamiast planować użycie całej wykrytej pojemności. Wartość marginesu dla konkretnej aplikacji jest `NEEDS_VERIFICATION`.
+- **Alokacja:** trzymaj na GPU tylko dane potrzebne w bieżącym kroku. Nie twórz niepotrzebnych kopii i nie zachowuj referencji do wyników, które nie są już potrzebne.
+- **Monitorowanie:** mierz osobno `allocated`, `reserved` oraz wartości szczytowe; przy niejasnym OOM zbierz statystyki lub snapshot allocatora. **Status: `SOURCE_VERIFIED` [1].**
+- **Odciążenie:** jeżeli budżet VRAM jest niewystarczający, najpierw zmniejsz obciążenie, a następnie zaplanuj offload do RAM. Przed każdym transferem sprawdź, czy RAM i przepustowość są wystarczające. Konkretna kolejność jest `PLANNED` do zatwierdzenia w projekcie.
+
+## Wymagania wejściowe do decyzji agenta
+
+Agent nie powinien rekomendować zmiany bez zebranych, o ile dostępnych, danych:
+
+- model i etap pracy (inferencja/trening),
+- GPU, liczba urządzeń i deklarowana pojemność VRAM,
+- dostępny RAM i inne procesy konkurujące o pamięć,
+- wersja PyTorch, wersja CUDA/runtime oraz sterownik — `NEEDS_VERIFICATION`,
+- `dtype` parametrów, wejść, aktywacji i gradientów,
+- batch size, rozdzielczość/długość sekwencji i liczba równoległych zadań,
+- `memory_allocated`, `memory_reserved`, wartości szczytowe oraz komunikat OOM,
+- informacja, czy problem wystąpił przy ładowaniu, forward, backward czy zapisie wyniku.
+
+Jeżeli danych brakuje, agent ma oznaczyć wniosek jako `NEEDS_VERIFICATION`, a nie uzupełniać go domysłem.
+
+## Procedura użycia
+
+1. **Zdefiniuj przypadek.** Zapisz model, zadanie, urządzenie, wejście, batch, `dtype` i wymagania jakościowe.
+2. **Ustal punkt pomiaru.** Zmierz pamięć przed ładowaniem, po załadowaniu modelu, po przygotowaniu wejścia, po forward oraz — w treningu — po backward. Zapisz metryki i parametry razem z wynikiem.
+3. **Sklasyfikuj OOM.** Porównaj `allocated` z `reserved`, sprawdź moment awarii i to, czy problem występuje od pierwszego uruchomienia czy narasta w czasie.
+4. **Zastosuj najmniejszą zmianę.** W kolejności rozważ: mniejszy batch, mniejsze wejście, mniej równoległości, krótszy czas życia referencji, odpowiedni tryb bez gradientów dla inferencji — tylko jeśli zgodny z celem — następnie zweryfikowany `dtype`, a dopiero potem offload.
+5. **Zweryfikuj offload.** Przypisz, które moduły/tensory pozostają na GPU, które trafiają do CPU, kiedy następują transfery i jaki jest limit RAM. Nie przenoś automatycznie całego modelu bez potwierdzenia, że dalsze operacje mają zgodne urządzenie.
+6. **Powtórz pomiar.** Porównaj szczyt VRAM, szczyt RAM, czas, stabilność i jakość. Każdą zmianę oznacz statusem `PLANNED`, `NEEDS_VERIFICATION` albo `LOCALLY_TESTED` dopiero po rzeczywistym teście.
+
+## Diagnostyka OOM
+
+- **Awaria przy ładowaniu:** sprawdź rozmiar parametrów, `dtype`, bufory oraz dodatkowe obiekty tworzone podczas inicjalizacji. Nie zakładaj, że sam rozmiar pliku modelu równa się wymaganej pamięci wykonania.
+- **Awaria w forward:** sprawdź aktywacje, kształty wejścia, batch i operator powodujący szczyt. Zmniejsz obciążenie lub zaplanuj offload aktywacji/modułu; skuteczność konkretnego wariantu jest `NEEDS_VERIFICATION`.
+- **Awaria w backward:** uwzględnij gradienty i stany optymalizatora, które mogą wymagać dodatkowej pamięci. Dokładny budżet zależy od optymalizatora i modelu i jest `NEEDS_VERIFICATION`.
+- **`reserved` znacznie większe od `allocated`:** sprawdź statystyki i snapshot allocatora, zamiast uznawać to automatycznie za wyciek. `empty_cache()` może oddać nieużywany cache innym aplikacjom, ale nie naprawi żywych referencji ani aktywnych tensorów. **Status: `SOURCE_VERIFIED` [1].**
+- **Wynik z `nvidia-smi` nie zgadza się z PyTorch:** porównaj zakresy pomiaru i pamiętaj o cache allocatora oraz innych procesach GPU. **Status: `SOURCE_VERIFIED` [1]; identyfikacja innych procesów: `NEEDS_VERIFICATION`.**
+- **Błąd po offloadzie:** sprawdź urządzenia wszystkich wejść, parametrów i buforów oraz zgodność `dtype`. Nie zakładaj, że transfer modułu przeniósł obiekty spoza jego parametrów i buforów.
+
+## Testowanie i kryteria akceptacji
+
+Test ma być wykonany na docelowej kombinacji model–GPU–runtime. Minimalny zapis testu powinien zawierać: konfigurację, kroki, metryki przed/po, szczyt VRAM/RAM, czas, wynik jakości, komunikaty ostrzeżeń i status. Kryteria akceptacji ustala projekt; jako minimum rozwiązanie nie może powodować OOM w reprezentatywnym przypadku, nie może naruszać wymagań jakości i powinno mieć udokumentowany koszt transferów. Ponieważ lokalne środowisko nie było testowane, ten dokument nie zawiera statusu `LOCALLY_TESTED` ani wyników testów.
+
+**Szablon wpisu testowego do uzupełnienia (`PLANNED`):**
+
+- Model i zadanie: `[do uzupełnienia]`
+- GPU / VRAM: `[do uzupełnienia]`
+- RAM: `[do uzupełnienia]`
+- PyTorch / CUDA / sterownik: `[do uzupełnienia]`
+- Batch / kształt wejścia / dtype: `[do uzupełnienia]`
+- Strategia (baseline, dtype, offload): `[do uzupełnienia]`
+- `allocated` / `reserved` przed i po: `[do uzupełnienia]`
+- Szczyt VRAM / RAM: `[do uzupełnienia]`
+- Czas i jakość: `[do uzupełnienia]`
+- Wynik: `[PASS/FAIL do uzupełnienia]`
+- Status: `PLANNED` do czasu wykonania i zapisania dowodów.
+
+## Ograniczenia
+
+PyTorch, CUDA, sterownik, GPU i model mogą różnić się zachowaniem oraz dostępnymi możliwościami. Dokument nie podaje minimalnych wersji, bezpiecznych marginesów ani gwarantowanych oszczędności pamięci, ponieważ nie zostały zweryfikowane dla konkretnego środowiska. Offload może obniżyć użycie VRAM, lecz może zwiększyć użycie RAM, liczbę transferów i czas; wartości liczbowe wymagają pomiaru. Parametry allocatora są zależne od backendu i wersji; przed ich użyciem sprawdź dokumentację odpowiadającą zainstalowanemu PyTorch. **Status: `NEEDS_VERIFICATION`.**
+
+## Statusy dowodów
+
+- `SOURCE_VERIFIED` — twierdzenie potwierdzone w przywołanej dokumentacji oficjalnej.
+- `REPORTED` — informacja odczytana z lokalnego `AGENTS.md`/`README.md`, bez niezależnego testu wykonania.
+- `NEEDS_VERIFICATION` — zależne od wersji, sprzętu, modelu lub danych, których nie zweryfikowano.
+- `PLANNED` — zalecenie albo plan testu, nie dowód działania.
+- `LOCALLY_TESTED` — można użyć wyłącznie po wykonaniu i zapisaniu testu w docelowym środowisku; w tym dokumencie nie występuje jako deklaracja wyniku.
+
+## Źródła
+
+[1]: https://pytorch.org/docs/stable/notes/cuda.html "PyTorch CUDA semantics — Memory management"
+[2]: https://pytorch.org/docs/stable/amp.html "PyTorch Automatic Mixed Precision package"
+[3]: https://pytorch.org/docs/stable/generated/torch.nn.Module.html "PyTorch torch.nn.Module — device and dtype conversion"
+[4]: https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html "NVIDIA CUDA C Programming Guide"
+[5]: https://github.com/Lucas-Sawicki/AI-KNOWLEDGE-BASE/blob/master/AGENTS.md "AI-KNOWLEDGE-BASE AGENTS.md"

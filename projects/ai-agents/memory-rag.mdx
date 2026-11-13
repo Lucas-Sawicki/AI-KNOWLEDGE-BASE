@@ -1,0 +1,60 @@
+# AI Agents — Pamięć i RAG
+
+## Cel
+
+Dokument opisuje przechowywanie pamięci agenta, budowę kontekstu oraz retrieval-augmented generation (RAG). Priorytetem jest kontrola pochodzenia danych, minimalizacja ujawniania informacji i możliwość odtworzenia decyzji agenta.
+
+## Status informacji
+
+Ogólne zasady są `PLANNED` dla centralnej bazy, dopóki nie zostaną powiązane z konkretną implementacją i testami. Wnioski o klasyfikacji danych, kwarantannie backupu i przenoszeniu TaskContext są `REPORTED` z analizy Android AI.
+
+## Warstwy pamięci
+
+Rozdzielaj:
+
+- **Pamięć krótkoterminową** — kontekst bieżącej rozmowy lub zadania;
+- **TaskContext** — jawny, przenośny stan zadania i jego ograniczeń;
+- **Pamięć projektową** — zatwierdzone dokumenty, decyzje i artefakty;
+- **Indeks RAG** — pochodne wektory lub indeksy wyszukiwania;
+- **Audyt** — decyzje, zgody, hashe i dowody, których nie należy mieszać z treścią promptu.
+
+Pamięć nie powinna automatycznie nadawać uprawnień. Odnaleziony fragment jest kontekstem, nie zgodą na działanie.
+
+## Pochodzenie i świeżość
+
+Każdy fragment przeznaczony do RAG powinien mieć identyfikator źródła, hash, czas pozyskania, wersję dokumentu, status weryfikacji i politykę świeżości. Odpowiedź powinna umożliwiać wskazanie, które fragmenty wpłynęły na decyzję. Brak pochodzenia oznacz jako `INCONCLUSIVE`, a nie jako potwierdzenie.
+
+## Klasyfikacja danych
+
+Przed dołączeniem fragmentu do promptu sklasyfikuj go co najmniej jako D0–D3 zgodnie z polityką projektu. Przy wysyłaniu do dostawcy ponownie oceń każdy fragment względem polityki dostawcy, retencji, celu i zgody. Nie przekazuj całego indeksu tylko dlatego, że zapytanie dotyczy jednego dokumentu.
+
+## Retrieval i generowanie
+
+Minimalny przepływ powinien wyglądać tak:
+
+1. zwaliduj zapytanie i zakres projektu;
+2. wykonaj retrieval z ograniczeniem źródeł;
+3. odfiltruj dane niedozwolone lub nieaktualne;
+4. zapisz identyfikatory pobranych fragmentów;
+5. zbuduj minimalny kontekst;
+6. oznacz wynik LLM jako niezaufany;
+7. wykonaj osobną walidację przed użyciem narzędzia lub publikacją.
+
+RAG nie zastępuje polityki bezpieczeństwa, kontroli dostępu ani walidacji faktów.
+
+## Backup i transfer
+
+Import pamięci lub backupu powinien najpierw trafić do kwarantanny. Przed aktywacją pokaż pochodzenie, różnice, epokę klucza, zakres danych i wpływ na istniejące zgody. Usunięcie klucza nie dowodzi usunięcia kopii backupu, dlatego crypto-shredding wymaga jawnego manifestu backupu.
+
+Przy zmianie dostawcy TaskContext dziel na fragmenty, klasyfikuj je ponownie i twórz nowy payload. Nie przekazuj poprzedniego payloadu jako gotowego obiektu.
+
+## Testowanie
+
+Testy powinny obejmować: izolację tenantów/projektów, brak dostępu bez zgody, filtrowanie danych D3, świeżość dokumentów, reprodukcję wyników retrieval, import do kwarantanny, rollback oraz brak sekretów w indeksie i logach. W tym repozytorium nie wykonano jeszcze testów implementacyjnych ani lokalnych.
+
+## Status projektu
+
+- `PLANNED`: docelowy model warstw pamięci i RAG.
+- `REPORTED`: zalecenia TaskContext, klasyfikacji i kwarantanny z analizy Android AI.
+- `NEEDS_VERIFICATION`: wybór bazy wektorowej, embeddingów, retencji i szyfrowania.
+- `LOCALLY_TESTED`: nie wykonano.

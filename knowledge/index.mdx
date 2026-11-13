@@ -1,0 +1,171 @@
+---
+title: Indeks wspólnej wiedzy technologicznej
+status: SOURCE_VERIFIED
+---
+
+# Indeks wspólnej wiedzy technologicznej
+
+> **Status indeksu:** `SOURCE_VERIFIED` dla zakresu, zasad i inwentaryzacji wynikających z repozytoryjnych plików `AGENTS.md` i `README.md` odczytanych podczas przygotowania tego dokumentu. Status nie oznacza, że każda procedura opisana w dokumentach docelowych została wykonana lub przetestowana. W tym indeksie nie deklaruje się `LOCALLY_TESTED`.
+
+## Cel
+
+Ten dokument jest punktem wejścia do wspólnej wiedzy technologicznej repozytorium `AI-KNOWLEDGE-BASE`. Ma pomóc agentowi AI szybko ustalić, gdzie szukać informacji wspólnych dla wielu projektów, jakie źródło ma pierwszeństwo oraz które ustalenia wymagają weryfikacji.
+
+`knowledge/` przechowuje zasady i wiedzę możliwą do ponownego użycia między projektami. Szczegóły konkretnego projektu należy pozostawić w `projects/`. Kryteria jakości, bezpieczeństwa i testowania należy utrzymywać w `standards/`, a powtarzalne struktury dokumentów w `templates/`. Nie kopiuj szczegółów projektowych do tego indeksu.
+
+## Zakres
+
+Indeks obejmuje:
+
+- mapę istniejących obszarów i wpisów repozytorium;
+- reguły wyboru źródeł oraz oznaczania pewności informacji;
+- procedurę użycia wspólnej wiedzy przez agenta;
+- wymagania dokumentowania, testowania i diagnostyki;
+- ograniczenia dotyczące aktualności, środowiska i publikacji.
+
+Indeks nie jest:
+
+- dokumentacją konkretnego projektu, instalacji Windows, modelu, workflow ani skryptu;
+- dowodem wykonania instalacji, inferencji, testu integracyjnego lub testu na lokalnym środowisku;
+- implementacją standardu ani gwarancją działania API w określonej wersji.
+
+## Architektura informacji i zasady
+
+### Warstwy repozytorium
+
+| Obszar | Przeznaczenie | Zasada użycia | Status mapy |
+|---|---|---|---|
+| `knowledge/` | Wspólna wiedza technologiczna dla wielu projektów | Zapisuj reguły, wzorce i wiedzę przekrojową bez duplikowania szczegółów projektu | `SOURCE_VERIFIED` |
+| `projects/` | Dokumentacja konkretnych projektów | Odsyłaj do wspólnej wiedzy zamiast kopiować ją lokalnie | `SOURCE_VERIFIED` |
+| `standards/` | Normy, kryteria i wymagania jakościowe | Traktuj je jako kryteria oceny, nie jako dowód implementacji | `SOURCE_VERIFIED` |
+| `templates/` | Szablony dokumentacji i pracy | Uzupełniaj pola jawnie; puste pola nie są potwierdzeniem stanu | `SOURCE_VERIFIED` |
+
+### Zasady źródeł
+
+1. Najpierw czytaj `AGENTS.md`, `README.md`, dokumentację właściwego projektu i powiązane standardy.
+2. Dla bibliotek zewnętrznych korzystaj z aktualnej dokumentacji oficjalnej; procedura repozytorium wymaga najpierw identyfikacji biblioteki, a następnie zadania konkretnego pytania dokumentacyjnego w Context7.
+3. Nie zakładaj, że dokumentacja jest aktualna. Porównuj ją z rzeczywistym kodem i środowiskiem, jeśli środowisko jest dostępne.
+4. Nie wymyślaj nazw API, parametrów, wersji, skryptów, wyników ani zależności.
+5. Oficjalne źródło opisuje możliwości i wymagania, ale nie potwierdza działania w konkretnym środowisku bez testu.
+6. Nie zapisuj sekretów, tokenów, haseł ani prywatnych konfiguracji.
+
+## Jawne statusy
+
+Każdy istotny wpis, procedurę lub wynik oznacz jednym albo kilkoma statusami zgodnie z ich znaczeniem:
+
+- `SOURCE_VERIFIED` — twierdzenie potwierdzone w podanym źródle oficjalnym albo w repozytoryjnych instrukcjach; nie oznacza testu lokalnego.
+- `REPORTED` — informacja zgłoszona lub zaobserwowana, której nie potwierdzono w tym wpisie źródłem lub testem.
+- `NEEDS_VERIFICATION` — wymaga sprawdzenia w konkretnym środowisku, wersji, konfiguracji, modelu albo kodzie.
+- `PLANNED` — plan, propozycja lub szablon do wykonania; nie jest wynikiem wykonanej operacji.
+- `LOCALLY_TESTED` — wolno użyć wyłącznie po rzeczywistym teście lokalnym z zapisanym środowiskiem, poleceniem, oczekiwaniem i wynikiem. Ten indeks nie deklaruje tego statusu.
+
+Jeżeli twierdzenie ma kilka aspektów, oznacz je osobno. Na przykład oficjalny opis API może być `SOURCE_VERIFIED`, natomiast użycie tego API z konkretną wersją modelu powinno pozostać `NEEDS_VERIFICATION` do czasu sprawdzenia.
+
+## Mapa istniejących obszarów
+
+Poniższa mapa opisuje pliki obecne w repozytorium w chwili przygotowania indeksu. Sam fakt istnienia ścieżki jest `SOURCE_VERIFIED` na podstawie inwentaryzacji repozytorium. Zawartość pliku, jego aktualność i działanie procedur pozostają `NEEDS_VERIFICATION`, chyba że dany wpis ma własne, jawne potwierdzenie.
+
+### Wspólna wiedza — `knowledge/`
+
+- `knowledge/index.mdx` — bieżący indeks; `SOURCE_VERIFIED` dla zasad i mapy opisanych tutaj; brak `LOCALLY_TESTED`.
+- `knowledge/diffusers.mdx` — Hugging Face Diffusers: architektura, pipeline’y, konfiguracja i diagnostyka; dokument zawiera własne odwołania do oficjalnej dokumentacji; procedury wykonawcze wymagają weryfikacji zgodnie z jego statusami.
+- `knowledge/mcp-context7.mdx` — wpis o Context7 MCP; zawartość do sprawdzenia; `NEEDS_VERIFICATION`.
+- `knowledge/python.mdx` — wpis o Pythonie; zawartość do sprawdzenia; `NEEDS_VERIFICATION`.
+- `knowledge/pytorch.mdx` — wpis o PyTorch; zawartość do sprawdzenia; `NEEDS_VERIFICATION`.
+- `knowledge/safetensors.mdx` — wpis o SafeTensors; zawartość do sprawdzenia; `NEEDS_VERIFICATION`.
+- `knowledge/transformers.mdx` — wpis o Transformers; zawartość do sprawdzenia; `NEEDS_VERIFICATION`.
+
+Nie zakładaj, że puste lub nieuzupełnione wpisy są implementacją, instrukcją instalacji albo potwierdzonym źródłem wiedzy.
+
+### Projekty — `projects/`
+
+- `projects/index.mdx` — indeks projektów; treść wymaga weryfikacji: `NEEDS_VERIFICATION`.
+- `projects/ai-agents/` — architektura agentów, serwery MCP oraz pamięć/RAG; wpisy: `architecture.mdx`, `index.mdx`, `mcp-servers.mdx`, `memory-rag.mdx`; status treści: `NEEDS_VERIFICATION`.
+- `projects/comfyui/` — ComfyUI, API, custom nodes, optymalizacja i workflow; wpisy: `api.mdx`, `custom-nodes.mdx`, `index.mdx`, `optimization.mdx`, `workflows.mdx`; status treści: `NEEDS_VERIFICATION`.
+- `projects/gpu-backend/` — lokalny GPU i opcjonalny backend Kaggle; wpisy: `index.mdx`, `kaggle-backend.mdx`, `local-gpu.mdx`; status treści: `NEEDS_VERIFICATION`.
+- `projects/lora-training-studio/` — trening, eksport i notebook Kaggle; wpisy: `export.mdx`, `index.mdx`, `kaggle-notebook.mdx`, `training.mdx`; status treści: `NEEDS_VERIFICATION`.
+
+### Standardy — `standards/`
+
+- `standards/index.mdx` — indeks standardów; `NEEDS_VERIFICATION`.
+- `standards/coding-rules.mdx` — reguły kodowania; `NEEDS_VERIFICATION`.
+- `standards/gpu-memory.mdx` — kryteria gospodarowania pamięcią GPU; `NEEDS_VERIFICATION`.
+- `standards/security.mdx` — wymagania bezpieczeństwa; `NEEDS_VERIFICATION`.
+- `standards/testing.mdx` — kryteria testowania; `NEEDS_VERIFICATION`.
+
+Standardy określają normy i kryteria oceny. Nie należy na ich podstawie twierdzić, że implementacja, instalacja lub test zostały wykonane.
+
+### Szablony — `templates/`
+
+- `templates/index.mdx` — indeks szablonów; `NEEDS_VERIFICATION`.
+- `templates/custom-node-template.mdx` — szablon dokumentowania custom node; `NEEDS_VERIFICATION`.
+- `templates/project-template.mdx` — szablon dokumentacji projektu; `NEEDS_VERIFICATION`.
+
+Szablon jest wzorcem do wypełnienia. Pola nieuzupełnione należy pozostawić jawnie oznaczone, np. `NEEDS_VERIFICATION` albo `PLANNED`, zamiast uzupełniać je domysłem.
+
+## Wymagania dla nowych wpisów
+
+Nowy wpis wspólnej wiedzy powinien:
+
+- mieć jednoznaczny cel, zakres i granice względem `projects/`, `standards/` i `templates/`;
+- podawać wymagania środowiskowe bez dopisywania niezweryfikowanych wersji;
+- opisywać procedurę użycia jako instrukcję warunkową, gdy nie wykonano testu;
+- zawierać procedurę testowania, diagnostykę i znane ograniczenia;
+- mieć źródła oficjalne przy twierdzeniach zewnętrznych;
+- oznaczać każdy niepotwierdzony element jednym z `REPORTED`, `NEEDS_VERIFICATION` lub `PLANNED`;
+- nie deklarować `LOCALLY_TESTED` bez rzeczywistego, udokumentowanego testu.
+
+## Procedura użycia przez agenta AI
+
+1. Odczytaj ten indeks oraz `AGENTS.md` i `README.md`.
+2. Określ, czy zadanie dotyczy wiedzy wspólnej, konkretnego projektu, standardu czy szablonu.
+3. Otwórz właściwy wpis i jego źródła; nie traktuj samej obecności pliku jako potwierdzenia treści.
+4. Rozdziel informacje `SOURCE_VERIFIED`, `REPORTED`, `NEEDS_VERIFICATION` i `PLANNED`.
+5. Porównaj wymagania z rzeczywistym kodem, interpreterem, wersjami bibliotek i konfiguracją docelową, jeśli masz do nich dostęp.
+6. Wykonaj minimalny test opisany w dokumencie docelowym albo oznacz wynik jako `PLANNED`/`NEEDS_VERIFICATION`; nie deklaruj sukcesu bez wyniku.
+7. Zapisz ustalenia w odpowiedniej warstwie, unikając kopiowania wspólnej wiedzy do dokumentu projektu.
+8. Przed publikacją sprawdź zakres zmiany, źródła, statusy, sekrety i zgodność z procesem zatwierdzenia użytkownika.
+
+## Testowanie i zapis wyników
+
+Status testów tego indeksu: `PLANNED`. Nie wykonano testów bibliotek, instalacji, integracji, inferencji ani testów lokalnego Windows. Nie deklaruje się `LOCALLY_TESTED`.
+
+Dla każdego rzeczywiście wykonanego testu zapisz co najmniej:
+
+- datę i środowisko;
+- użyty interpreter, wersje i backend, jeśli mają znaczenie;
+- polecenie lub minimalną procedurę;
+- oczekiwany rezultat;
+- rzeczywisty rezultat i istotny log błędu;
+- status po teście.
+
+Sama składnia dokumentu lub obecność ścieżki w repozytorium nie jest testem działania biblioteki, aplikacji ani środowiska.
+
+## Diagnostyka
+
+W przypadku sprzeczności lub błędu:
+
+1. sprawdź, czy agent czyta właściwy wpis i źródło;
+2. sprawdź status informacji i datę jej weryfikacji;
+3. porównaj dokumentację z faktycznym kodem i środowiskiem;
+4. zweryfikuj interpreter oraz wersje zależności, nie zakładając, że dwa środowiska Pythona są tym samym środowiskiem;
+5. odtwórz minimalny przypadek i zapisz wynik;
+6. jeśli nie można sprawdzić przyczyny, pozostaw `NEEDS_VERIFICATION` zamiast zgadywać.
+
+Dla lokalnego Windows agent nie powinien twierdzić, że odczytał lub zmodyfikował lokalną ścieżkę bez autoryzowanego dostępu. Należy przygotować dokładną komendę lub skrypt do uruchomienia przez użytkownika i poprosić o wynik.
+
+## Ograniczenia
+
+- Indeks nie zastępuje dokumentacji projektu ani źródeł bibliotek.
+- Mapa odzwierciedla stan repozytorium w momencie przygotowania i może się zdezaktualizować po dodaniu, usunięciu lub zmianie plików.
+- Nie ustala wersji bibliotek, sprzętu, systemu operacyjnego ani dostępności backendu.
+- Nie potwierdza działania żadnej procedury tylko dlatego, że ją opisuje.
+- Nie rozstrzyga licencji, bezpieczeństwa modelu ani kosztu użycia zewnętrznych zasobów; te kwestie wymagają weryfikacji dla konkretnego przypadku i zgody użytkownika, gdy jest wymagana.
+- Zmiany dokumentacji wymagają przejścia procesu analizy, przygotowania, weryfikacji, zatwierdzenia i publikacji opisanego w `README.md`.
+
+## Źródła
+
+1. `AGENTS.md` w repozytorium `AI-KNOWLEDGE-BASE` — przewodnie zasady pracy agenta, struktura warstw, Context7, weryfikacja, bezpieczeństwo i raportowanie; `SOURCE_VERIFIED`.
+2. `README.md` w repozytorium `AI-KNOWLEDGE-BASE` — cel, architektura, mapa projektów, proces zmian, zasady dokumentowania i struktura repozytorium; `SOURCE_VERIFIED`.
+3. `knowledge/diffusers.mdx` — istniejący wpis wspólnej wiedzy z odwołaniami do oficjalnej dokumentacji Hugging Face; wykorzystany wyłącznie jako element mapy i odsyłacz do dalszej weryfikacji.
+4. Oficjalna dokumentacja konkretnej biblioteki lub narzędzia wskazana w odpowiednim wpisie `knowledge/`; używaj jej dopiero po sprawdzeniu aktualności i zakresu. Dla nieprzywołanego źródła status pozostaje `NEEDS_VERIFICATION`.

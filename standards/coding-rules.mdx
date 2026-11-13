@@ -1,0 +1,198 @@
+# Standardy kodowania dla projektów AI i custom nodes
+
+> **Typ dokumentu:** standard (`standards/`), nie opis gotowej implementacji.
+>
+> **Źródło przewodnie:** `AGENTS.md` i `README.md` repozytorium AI-KNOWLEDGE-BASE.
+>
+> **Stan tego dokumentu:** `SOURCE_VERIFIED` dla zasad wynikających bezpośrednio z lokalnych `AGENTS.md` i `README.md`; `REPORTED` dla informacji opisanych w tych plikach jako zakres projektu lub środowisko; `NEEDS_VERIFICATION` dla szczegółów zależnych od konkretnego kodu, wersji i środowiska; `PLANNED` dla propozycji procesu, której nie należy traktować jako istniejącej implementacji. Nie deklaruje się `LOCALLY_TESTED`.
+
+## 1. Cel
+
+Celem standardu jest ujednolicenie sposobu projektowania, implementowania, dokumentowania, testowania i diagnozowania kodu w projektach AI, w tym custom nodes dla ComfyUI. Standard ma pomóc agentowi AI:
+
+- utrzymać zgodność z architekturą i założeniami projektu;
+- nie wymyślać API, parametrów, wersji, skryptów ani wyników testów;
+- ograniczać zużycie VRAM, RAM, czasu i innych zasobów;
+- oddzielać wspólną wiedzę od szczegółów konkretnego projektu;
+- pozostawić użytkownikowi kontrolę nad architekturą, kreatywnością, kosztami i publikacją zmian;
+- dokumentować stan wiedzy oraz niepewności w sposób możliwy do ponownej weryfikacji.
+
+## 2. Zakres i granice
+
+Standard obejmuje:
+
+- kod aplikacji AI, integracji, agentów, MCP, RAG i workflow;
+- moduły oraz custom nodes używane w ComfyUI;
+- konfigurację, zależności, interfejsy wejścia/wyjścia i przepływ danych;
+- dokumentację techniczną, procedury testowe i diagnostykę;
+- wymagania jakościowe dla zmian przygotowywanych przez agenta AI.
+
+Standard nie zastępuje dokumentacji konkretnego projektu, instrukcji instalacji, kontraktów biblioteki ani wyników testów. Szczegóły projektowe należy zapisywać w odpowiednim `projects/`, a wiedzę wspólną w `knowledge/` lub `standards/`. Nie należy duplikować w tym dokumencie konfiguracji, promptów, parametrów kreatywnych, wersji zależności ani opisów pojedynczego workflow.
+
+## 3. Statusy informacji i dowodów
+
+Każde twierdzenie techniczne, przykład lub wynik należy oznaczyć jednym z poniższych statusów, gdy jego stan może być niejasny:
+
+| Status | Znaczenie i kryterium użycia |
+|---|---|
+| `SOURCE_VERIFIED` | Informacja potwierdzona w przywołanym źródle, przede wszystkim w `AGENTS.md`, `README.md` lub oficjalnej dokumentacji właściwej biblioteki. Należy podać źródło i, gdy to możliwe, sekcję. |
+| `REPORTED` | Informacja zgłoszona lub opisana w dokumentacji repozytorium, ale bez potwierdzenia w kodzie albo środowisku wykonawczym. Nie przedstawiać jej jako faktu uruchomieniowego. |
+| `NEEDS_VERIFICATION` | Informacja wymagająca sprawdzenia w konkretnym kodzie, interpreterze, instalacji, wersji biblioteki lub środowisku. |
+| `PLANNED` | Propozycja, plan lub kryterium do wdrożenia. Nie jest istniejącą funkcją, skryptem, API ani wykonanym testem. |
+| `LOCALLY_TESTED` | Wolno użyć wyłącznie po rzeczywistym wykonaniu opisanego testu w określonym środowisku i zapisaniu wyniku, komendy oraz daty. Ten dokument nie deklaruje tego statusu. |
+
+Gdy źródła są sprzeczne, agent nie rozstrzyga samodzielnie na podstawie domysłu. Wskazuje rozbieżność, zachowuje `NEEDS_VERIFICATION` i prosi o właściwe źródło lub test.
+
+## 4. Zasady architektury i projektowania
+
+### 4.1. Zasady wspólne
+
+1. Najpierw określ cel, zakres, ograniczenia i projekt, którego dotyczy zmiana. Nie zmieniaj celu użytkownika ani założeń kreatywnych bez zgody.
+2. Przed zmianą przeczytaj `AGENTS.md`, `README.md`, dokumentację właściwego projektu, powiązane standardy oraz istniejący kod.
+3. Traktuj dokumentację jako potencjalnie nieaktualną. Porównuj ją z rzeczywistym kodem i środowiskiem, a różnice oznaczaj `NEEDS_VERIFICATION`.
+4. Preferuj prostą architekturę, małą liczbę zależności, jawne kontrakty i możliwość instalacji oraz testowania każdego modułu.
+5. Minimalizuj kopiowanie danych, zużycie VRAM i RAM oraz niepotrzebny batch size. Nie przenoś zadań do zewnętrznego backendu bez zgody użytkownika.
+6. Nie zapisuj sekretów, kluczy API, tokenów, haseł ani prywatnych danych w kodzie lub dokumentacji.
+7. Nie zmieniaj instalacji ComfyUI, uprawnień, publikacji ani gałęzi głównej bez odpowiedniej zgody i analizy.
+
+### 4.2. Custom nodes ComfyUI
+
+Dla custom node należy zaprojektować i zweryfikować, zgodnie z kontraktem używanej wersji ComfyUI:
+
+- `INPUT_TYPES` — deklarację wejść i ich parametrów;
+- `RETURN_TYPES` — deklarację wyjść;
+- `FUNCTION` — wskazanie funkcji wykonującej node;
+- `CATEGORY` — kategorię node;
+- kontrolowany przepływ danych między wejściami, funkcją i wyjściami;
+- zgodność z istniejącymi node oraz ograniczenie zbędnych zależności.
+
+Powyższa lista jest normą kontroli zgodności, a nie dowodem istnienia konkretnego modułu. Dokładne sygnatury, typy, wartości domyślne i zachowanie należy sprawdzić w kodzie projektu oraz oficjalnej dokumentacji używanej wersji (`NEEDS_VERIFICATION`, dopóki nie zostaną potwierdzone).
+
+### 4.3. Kontrakty kodu
+
+Każda zmiana powinna jawnie opisywać, o ile dotyczy:
+
+- wejścia, wyjścia i typy danych;
+- wartości domyślne, zakresy oraz zachowanie dla pustych lub błędnych danych;
+- zarządzanie urządzeniem, dtype, pamięcią i przenoszeniem danych;
+- zależności i warunki instalacji;
+- obsługę błędów bez ukrywania przyczyny;
+- kompatybilność wsteczną albo świadome jej złamanie.
+
+Nie wpisuj przykładowych parametrów lub wartości jako działających, jeśli nie pochodzą ze źródła albo testu. Przykład bez potwierdzenia oznacz `PLANNED` lub `NEEDS_VERIFICATION`.
+
+## 5. Wymagania dla agenta AI
+
+Przed implementacją agent powinien przygotować plan obejmujący analizę, plan, implementację, testy, weryfikację, dokumentację i raport końcowy. Plan nie jest zgodą na zmianę zakresu.
+
+W trakcie pracy agent powinien:
+
+- sprawdzić status repozytorium i nie nadpisywać zmian użytkownika;
+- użyć właściwego interpretera dla środowiska, zamiast zakładać, że systemowy Python jest interpreterem ComfyUI;
+- ustalić wersje bibliotek, zależności i backendów przed instalacją lub modyfikacją;
+- używać oficjalnej dokumentacji, a dla zewnętrznych bibliotek przejść przez przewidzianą w `AGENTS.md` procedurę Context7: identyfikacja biblioteki, następnie konkretne zapytanie do dokumentacji;
+- wskazywać komendy i ścieżki, których sam nie mógł wykonać;
+- zachować rozdział między źródłami własnych projektów (Docs7) a dokumentacją zewnętrzną (Context7);
+- raportować zmienione pliki, zależności, testy, problemy i instrukcję uruchomienia.
+
+## 6. Procedura użycia standardu
+
+1. **Klasyfikacja:** ustal, czy zmiana dotyczy `projects/`, `knowledge/`, `standards/` czy `templates/`. Ten plik opisuje normy; nie udaje implementacji.
+2. **Źródła:** odczytaj `AGENTS.md`, `README.md`, właściwy projekt, powiązane standardy i kod. Zapisz źródła oraz status każdego istotnego twierdzenia.
+3. **Kontrakt:** opisz wejścia, wyjścia, zależności, środowisko, ograniczenia zasobów i kryteria akceptacji.
+4. **Plan:** wybierz najmniejszą zmianę spełniającą cel. Nie usuwaj ani nie nadpisuj cudzych zmian.
+5. **Implementacja:** koduj zgodnie z kontraktem i istniejącą architekturą; nie dodawaj nieuzasadnionych zależności.
+6. **Testowanie:** wykonaj tylko testy, do których istnieje dostęp. Każdy wynik zapisz z komendą, środowiskiem, datą i statusem. Brak dostępu oznacz `NEEDS_VERIFICATION`; nie używaj `LOCALLY_TESTED`.
+7. **Diagnostyka:** odtwarzaj problem małym przypadkiem, sprawdzaj importy i przepływ danych, a następnie oddziel obserwację od hipotezy.
+8. **Dokumentacja:** uzupełnij instalację, uruchomienie, testy, ograniczenia i źródła w dokumentacji projektu, bez kopiowania wspólnych zasad.
+9. **Raport:** podaj wykonane zmiany, listę plików, zależności, testy, problemy i kolejne kroki. Publikację lub scalanie pozostaw do zatwierdzenia użytkownika.
+
+## 7. Testowanie i kryteria akceptacji
+
+Testy są wymaganiem procesu, ale ten dokument nie twierdzi, że jakikolwiek test został wykonany. Dla custom nodes minimalny plan testów powinien obejmować:
+
+- sprawdzenie składni;
+- sprawdzenie importów i zależności;
+- sprawdzenie rejestracji node;
+- sprawdzenie wejść i wyjść;
+- wykonanie funkcji dla poprawnych danych;
+- zachowanie dla błędnych, pustych i granicznych danych;
+- integrację z ComfyUI;
+- kontrolę zużycia pamięci i urządzenia, jeśli jest to istotne dla zmiany.
+
+Kryterium akceptacji powinno być obserwowalne: wskazywać komendę lub działanie, środowisko, oczekiwany rezultat i sposób zapisania wyniku. Wynik nieznany pozostaje `NEEDS_VERIFICATION`. Nie wolno zastępować testu stwierdzeniem „powinno działać”.
+
+## 8. Diagnostyka
+
+W razie problemu stosuj kolejno:
+
+1. zachowaj pełny komunikat błędu i kontekst uruchomienia;
+2. potwierdź interpreter, wersje, ścieżki i zależności;
+3. sprawdź składnię, importy i rejestrację;
+4. sprawdź kontrakt wejść/wyjść oraz typy i urządzenia danych;
+5. odtwórz problem na najmniejszym bezpiecznym przypadku;
+6. rozdziel błąd kodu, konfiguracji, środowiska i zasobów;
+7. porównaj zachowanie z oficjalnym źródłem właściwej wersji;
+8. zaproponuj zmianę i test regresyjny, ale oznacz ją `PLANNED`, dopóki nie zostanie wykonana.
+
+Nie zgaduj przyczyny na podstawie samej nazwy błędu. Nie ukrywaj wyjątków, nie usuwaj diagnostyki bez uzasadnienia i nie deklaruj naprawy bez potwierdzonego testu.
+
+## 9. Ograniczenia i jawne niepewności
+
+- `AGENTS.md` i `README.md` definiują zasady repozytorium, ale nie potwierdzają szczegółów każdej biblioteki ani instalacji.
+- Opis Windows, ścieżki ComfyUI, Kaggle, Docs7 i Context7 w dokumentacji repozytorium traktuj jako `REPORTED`, dopóki nie zostaną zweryfikowane w konkretnym zadaniu.
+- Nie ma podstaw, aby ten dokument deklarował działający custom node, istniejący skrypt, konkretną wersję API, wynik testu lub dostęp do lokalnego Windows.
+- Lokalne środowiska nie zostały w ramach tego dokumentu przetestowane; status `LOCALLY_TESTED` nie jest użyty.
+- Zewnętrzne zasoby obliczeniowe, koszty, publikacja, usuwanie plików i zmiany uprawnień wymagają decyzji użytkownika.
+- Szczegóły modeli, backendów, bibliotek i interfejsów mogą się zmieniać; przed implementacją należy ponownie zweryfikować oficjalną dokumentację.
+
+## 10. Mapa istniejących obszarów dokumentacji
+
+Poniższa mapa pochodzi z `README.md` i jest mapą obszarów repozytorium, a nie deklaracją kompletności plików ani implementacji.
+
+| Obszar | Przeznaczenie | Status |
+|---|---|---|
+| `projects/` | Dokumentacja projektów | `SOURCE_VERIFIED` |
+| `projects/comfyui/` | ComfyUI, API, workflow, optymalizacja i custom nodes | `REPORTED` |
+| `projects/lora-training-studio/` | Dane, trening, konfiguracja i eksport LoRA | `REPORTED` |
+| `projects/gpu-backend/` | Lokalny GPU i opcjonalny backend zdalny | `REPORTED` |
+| `projects/ai-agents/` | Agenci AI, MCP, pamięć, RAG i narzędzia | `REPORTED` |
+| `knowledge/` | Wspólna wiedza technologiczna | `SOURCE_VERIFIED` |
+| `standards/` | Standardy techniczne | `SOURCE_VERIFIED` |
+| `templates/` | Szablony dokumentów | `SOURCE_VERIFIED` |
+| `reference/` i `guides/` | Obszary wymienione w strukturze README | `REPORTED` |
+| `standards/index.mdx` | Indeks standardów | `NEEDS_VERIFICATION` — zawartość i mapa wymagają uzupełnienia w osobnym zadaniu |
+
+Nie należy traktować statusu `REPORTED` jako dowodu, że obszar ma kompletną, aktualną lub przetestowaną dokumentację.
+
+## 11. Szablon karty zmiany
+
+Poniższy szablon jest do uzupełnienia dla konkretnej zmiany. Puste pola są zamierzone; nie należy wypełniać ich domysłami.
+
+```md
+## Karta zmiany
+
+- Projekt / ścieżka: [uzupełnij]
+- Cel: [uzupełnij]
+- Zakres: [uzupełnij]
+- Poza zakresem: [uzupełnij]
+- Źródła oficjalne: [uzupełnij]
+- Status źródeł: SOURCE_VERIFIED / REPORTED / NEEDS_VERIFICATION
+- Zależności i wersje: [uzupełnij lub NEEDS_VERIFICATION]
+- Wejścia i wyjścia: [uzupełnij]
+- Ograniczenia VRAM/RAM/CPU: [uzupełnij]
+- Zmodyfikowane pliki: [uzupełnij]
+- Plan testów: [uzupełnij]
+- Wyniki testów: [uzupełnij; bez LOCALLY_TESTED, jeśli testu nie wykonano lokalnie]
+- Diagnostyka i znane problemy: [uzupełnij]
+- Ograniczenia: [uzupełnij]
+- Kolejne kroki: [PLANNED]
+```
+
+## 12. Źródła
+
+1. `AGENTS.md` — lokalne zasady dla agentów, architektury ComfyUI, procedury Context7, środowiska lokalnego, bezpieczeństwa, testów i raportowania. Status: `SOURCE_VERIFIED`.
+2. `README.md` — cel, architektura, obszary repozytorium, model zarządzania zmianami, zasady dokumentowania i bezpieczeństwa. Status: `SOURCE_VERIFIED`.
+3. Oficjalna dokumentacja konkretnej biblioteki, frameworka lub ComfyUI — należy wskazać dokładny adres i wersję dopiero po weryfikacji w zadaniu. Status domyślny przed sprawdzeniem: `NEEDS_VERIFICATION`.
+
+Dokument nie używa lokalnych wyników testów jako źródła i nie deklaruje `LOCALLY_TESTED`.

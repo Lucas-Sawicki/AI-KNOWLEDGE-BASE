@@ -1,0 +1,169 @@
+---
+title: Python dla projektów AI — środowiska, wersje, importy i diagnostyka
+status: SOURCE_VERIFIED
+---
+
+# Python dla projektów AI: środowiska, wersje, importy, diagnostyka
+
+> **Status dokumentu:** `SOURCE_VERIFIED` dla twierdzeń popartych oficjalną dokumentacją Python oraz dla lokalizacji tego wpisu w warstwie `knowledge/`. Procedury odnoszące się do konkretnego projektu, systemu, interpretera, pakietu lub konfiguracji mają status `NEEDS_VERIFICATION`, dopóki nie zostaną sprawdzone w docelowym środowisku. Statusu `LOCALLY_TESTED` nie deklaruje się w tym dokumencie.
+
+## Cel
+
+Ten wpis jest wspólną, przenośną wiedzą dla agenta AI pracującego nad projektami wykorzystującymi Python. Ma pomóc ustalić, **który interpreter uruchamia kod**, **gdzie Python szuka modułów**, **do którego środowiska trafiają pakiety** oraz **jak zebrać dane diagnostyczne bez zgadywania**.
+
+Dokument nie opisuje implementacji konkretnego projektu, ComfyUI, modelu, biblioteki AI ani lokalnej instalacji użytkownika. Szczegóły projektu należy zapisać w odpowiednim `projects/`, a kryteria jakości w `standards/`. Nie kopiuj tego wpisu do dokumentacji projektu; odsyłaj do niego.
+
+## Zakres i granice
+
+Zakres obejmuje:
+
+- wybór i identyfikację interpretera;
+- tworzenie izolowanych środowisk przez `venv`;
+- rozróżnienie wersji Pythona, środowiska i pakietów;
+- podstawy działania `sys.path` i importów;
+- bezpieczne uruchamianie `pip` przez wybrany interpreter;
+- minimalną procedurę diagnostyczną dla błędów importu i konfliktów środowiskowych;
+- plan testowania, ograniczenia i statusy pewności.
+
+Poza zakresem pozostają: wybór wersji wymaganej przez konkretną bibliotekę, instalacja sterowników GPU, konfiguracja CUDA, menedżery środowisk firm trzecich, pinowanie zależności projektu, zgodność z konkretnym modelem oraz wynik działania na Windows lub Linux. Każda z tych kwestii wymaga osobnej weryfikacji (`NEEDS_VERIFICATION`).
+
+## Statusy używane w tym wpisie
+
+- `SOURCE_VERIFIED` — informacja potwierdzona w przywołanym źródle oficjalnym albo w instrukcjach repozytorium; nie jest dowodem testu lokalnego.
+- `REPORTED` — informacja zgłoszona lub zaobserwowana, której nie potwierdzono tu wystarczającym źródłem albo testem.
+- `NEEDS_VERIFICATION` — element zależny od konkretnego środowiska, wersji, kodu, platformy lub konfiguracji, który trzeba sprawdzić.
+- `PLANNED` — plan, przykład procedury albo kryterium do wykonania; nie jest wynikiem wykonanej operacji.
+- `LOCALLY_TESTED` — wolno użyć tylko po rzeczywistym teście z zapisanym środowiskiem, poleceniem, oczekiwaniem i wynikiem. Ten dokument nie zawiera tego statusu.
+
+## Architektura i zasady
+
+### 1. Interpreter jest częścią konfiguracji
+
+`python`, `python3`, launcher systemowy, interpreter w środowisku wirtualnym i interpreter dostarczony z aplikacją mogą wskazywać różne instalacje. Nie zakładaj, że polecenie `pip` instaluje pakiet do interpretera, który później uruchomi aplikację. Przed każdą instalacją lub testem ustal ścieżkę wykonywanego interpretera i jego wersję (`PLANNED`; do sprawdzenia w środowisku: `NEEDS_VERIFICATION`).
+
+Preferuj formę `python -m pip ...`, ponieważ uruchamia moduł `pip` przez interpreter wskazany jako `python`. W systemie z wieloma interpreterami zastąp `python` jednoznacznym poleceniem wybranego interpretera. Oficjalny przewodnik instalowania modułów pokazuje zarówno `python -m pip`, jak i używanie wersjonowanych poleceń na POSIX oraz launchera `py` na Windows [1].
+
+### 2. Środowisko wirtualne izoluje pakiety, nie rozwiązuje wszystkich konfliktów
+
+Moduł `venv` tworzy lekkie środowisko na bazie istniejącej instalacji Pythona. Domyślnie środowisko jest odizolowane od pakietów środowiska bazowego i ma własny katalog `site-packages` [2]. Środowisko powinno być traktowane jako odtwarzalne i tymczasowe: kodu projektu nie umieszcza się w jego katalogu, a samego środowiska nie należy wersjonować w Git [2].
+
+Aktywacja jest wygodną zmianą `PATH`, ale nie jest wymagana. Można wywoływać interpreter z pełnej ścieżki środowiska; dlatego diagnostyka powinna sprawdzać faktycznie uruchamiany interpreter, a nie tylko nazwę widoczną w promptcie [2]. Użycie `--system-site-packages`, sposobu kopiowania lub dowiązań oraz innych opcji `venv` jest decyzją zależną od projektu i ma status `NEEDS_VERIFICATION`.
+
+### 3. Wersja Pythona i wersje pakietów to osobne fakty
+
+Zapisz oddzielnie:
+
+1. wersję interpretera;
+2. ścieżkę do jego pliku wykonywalnego;
+3. wersję i lokalizację `pip`;
+4. wersje kluczowych pakietów;
+5. platformę i architekturę, jeżeli mają znaczenie.
+
+Nie dopisuj minimalnej ani maksymalnej wersji bez źródła wymagającego jej dla konkretnego projektu. Zgodność biblioteki AI z wersją Pythona, systemem, backendem i sterownikiem jest zależna od konkretnej biblioteki i konfiguracji (`NEEDS_VERIFICATION`). Oficjalna dokumentacja Python potwierdza sposób instalacji i izolacji, ale nie potwierdza zgodności dowolnego pakietu AI z dowolną wersją.
+
+### 4. `sys.path` wyjaśnia większość problemów z importem
+
+Python inicjalizuje `sys.path` przy starcie. Na początku uwzględnia katalog skryptu albo katalog bieżący w trybach takich jak REPL, `-c` i `-m`; następnie może uwzględnić `PYTHONPATH`, katalogi biblioteki standardowej i `site-packages` [3]. `PYTHONPATH` wpływa na wszystkie instalacje i środowiska uruchamiane z danego środowiska powłoki, więc jego globalne ustawianie może powodować niejawne konflikty [3].
+
+Środowisko `venv` używa `pyvenv.cfg`; w takim środowisku `sys.prefix` wskazuje środowisko, a `sys.base_prefix` instalację bazową. Różnica `sys.prefix != sys.base_prefix` jest oficjalnie opisaną wskazówką rozpoznania środowiska wirtualnego [2] [3]. `PYTHONHOME` może zmienić konfigurację ścieżek i ma być traktowane jako czynnik diagnostyczny, nie jako domyślne rozwiązanie [3].
+
+### 5. Import nie oznacza „znajdź dowolny plik”
+
+Mechanizm importu najpierw sprawdza cache `sys.modules`, a następnie korzysta z finderów i loaderów; ścieżka wyszukiwania jest tylko jednym z elementów tego mechanizmu [4]. Dla nazwy z kropkami Python importuje kolejne części ścieżki, więc błąd pośredniego pakietu może wystąpić przed załadowaniem końcowego modułu [4].
+
+Unikaj naprawiania importu przez przypadkowe dopisywanie katalogów do `sys.path` w kodzie aplikacji. Taka zmiana może ukryć zły interpreter, złą strukturę pakietu lub konflikt nazw. Jeśli jest konieczna, powinna być jawnie uzasadniona, ograniczona do konkretnego przypadku i oznaczona `NEEDS_VERIFICATION`.
+
+### 6. Uruchamianie modułu a uruchamianie pliku
+
+`python -m nazwa_modułu` wyszukuje moduł standardowym mechanizmem importu i uruchamia go jako `__main__`; rozszerzenia `.py` nie podaje się w tej formie [5]. Różnica między `python plik.py` a `python -m pakiet.moduł` może zmienić punkt startowy i `sys.path`, dlatego w instrukcji projektu trzeba zapisać dokładną formę uruchomienia (`PLANNED`, dopóki niezweryfikowana).
+
+## Wymagania
+
+Wymagania wspólne (`SOURCE_VERIFIED` lub `NEEDS_VERIFICATION` zależnie od punktu):
+
+- dostępny interpreter Python zgodny z wymaganiami konkretnego projektu (`NEEDS_VERIFICATION`);
+- możliwość odczytania ścieżki interpretera, wersji i konfiguracji środowiska (`PLANNED`);
+- `venv`, jeżeli projekt ma używać standardowego środowiska wirtualnego; moduł jest częścią dokumentacji Python i służy do jego tworzenia [2];
+- dostęp do instalatora pakietów tylko wtedy, gdy projekt wymaga zależności; Python dokumentuje `pip` jako preferowany instalator oraz `python -m pip` jako podstawową formę użycia [1];
+- źródło wymagań projektu, takie jak jego dokumentacja lub deklaracja zależności (`NEEDS_VERIFICATION`).
+
+Nie zakładaj obecności `pip`, konkretnego launchera, uprawnień administratora, dostępu sieciowego, cache pakietów ani binarnych kół dla rozszerzeń. Jeżeli brakuje któregoś elementu, zapisz obserwację jako `REPORTED` i zaplanuj sprawdzenie (`PLANNED`/`NEEDS_VERIFICATION`).
+
+## Procedura użycia przez agenta AI
+
+Poniższa procedura jest instrukcją do wykonania. W tym repozytorium ma status `PLANNED`; brak wyniku oznacza `NEEDS_VERIFICATION`.
+
+1. **Ustal zakres.** Zidentyfikuj projekt, katalog roboczy, wymagany sposób uruchomienia i źródło wymagań. Nie przenoś szczegółów projektu do `knowledge/`.
+2. **Ustal interpreter.** Uruchom w docelowym katalogu polecenie odczytujące `sys.executable`, `sys.version`, `sys.prefix`, `sys.base_prefix` i `sys.path`. Zapisz pełny wynik jako artefakt diagnostyczny, jeśli polityka projektu na to pozwala.
+3. **Ustal środowisko.** Sprawdź, czy interpreter jest tym, którego oczekuje projekt. Sama aktywacja środowiska nie jest dowodem; porównaj ścieżkę wykonywalnego pliku.
+4. **Utwórz środowisko, jeśli projekt tego wymaga.** Użyj `python -m venv <katalog-środowiska>` zgodnie z oficjalną składnią [2]. Nie używaj nazwy ani ścieżki konkretnego projektu jako uniwersalnej reguły.
+5. **Wybierz interpreter środowiska.** Aktywuj środowisko według platformy albo wywołuj jego interpreter pełną ścieżką. Aktywacja nie jest wymagana przez `venv` [2].
+6. **Instaluj przez właściwy interpreter.** Używaj `python -m pip`, a przed instalacją sprawdź wymagania i konflikt z istniejącymi pakietami. Nie instaluj pakietów do systemowego Pythona bez uzasadnienia; oficjalny przewodnik ostrzega, że może to kolidować z menedżerem pakietów systemu [1].
+7. **Uruchom kod w sposób określony przez projekt.** Rozróżnij plik skryptu i moduł uruchamiany przez `-m` [5].
+8. **Zapisz status.** Oddziel fakt potwierdzony źródłem (`SOURCE_VERIFIED`), obserwację (`REPORTED`), plan (`PLANNED`) i element wymagający powtórzenia w środowisku docelowym (`NEEDS_VERIFICATION`). Nie wpisuj `LOCALLY_TESTED` bez pełnego wyniku testu.
+
+## Testowanie
+
+Status tej sekcji: `PLANNED`; testów lokalnych nie wykonano.
+
+Minimalny plan weryfikacji dla konkretnego projektu:
+
+1. Zapisz system, architekturę, datę, polecenie, ścieżkę interpretera i wersję Pythona.
+2. Sprawdź, że `sys.prefix` oraz `sys.base_prefix` odpowiadają oczekiwanemu środowisku.
+3. Sprawdź, że `python -m pip` jest związany z tym samym interpreterem, który uruchomi aplikację.
+4. Dla każdego krytycznego importu zapisz moduł, oczekiwaną lokalizację i wynik minimalnego importu.
+5. Uruchom właściwy test projektu, nie zastępując go samym `import`.
+6. Zapisz oczekiwany i rzeczywisty rezultat oraz pełny istotny błąd.
+7. Po zmianie interpretera, wersji pakietu, ścieżek lub backendu powtórz test.
+
+Sama obecność pliku, poprawna składnia dokumentu, udane utworzenie `venv` albo udany pojedynczy import nie dowodzą poprawnego działania aplikacji AI. Wynik pozostaje `NEEDS_VERIFICATION`, dopóki nie ma testu właściwego dla projektu.
+
+## Diagnostyka
+
+### Zły interpreter lub zły `pip`
+
+Objaw: pakiet jest „zainstalowany”, ale import kończy się błędem albo aplikacja widzi inne wersje. Sprawdź `sys.executable`, `sys.version`, `sys.prefix`, `sys.base_prefix` oraz lokalizację pakietu. Następnie uruchom instalator jako `python -m pip`, nie jako niezależne `pip`. Jeśli ścieżki są różne, nie zmieniaj kodu aplikacji; najpierw wybierz właściwy interpreter (`NEEDS_VERIFICATION`).
+
+### `ModuleNotFoundError`
+
+Sprawdź kolejno: literówkę w nazwie, nazwę dystrybucji versus nazwę importowanego modułu, aktywne środowisko, `sys.path`, `PYTHONPATH`, katalog roboczy i strukturę pakietu. Oficjalna dokumentacja wyjaśnia, że `sys.path` i cache importów wpływają na wyszukiwanie [3] [4]. Nie zakładaj, że instalacja pakietu o podobnej nazwie rozwiązuje problem.
+
+### Import ładuje nie ten plik
+
+Sprawdź lokalizację załadowanego modułu oraz wpisy `sys.path`; uruchomienie z katalogu projektu może preferować lokalny plik o tej samej nazwie. Opcja `-v` wypisuje informacje o inicjalizowanych modułach, a `-vv` także o sprawdzanych plikach podczas wyszukiwania [5]. Tę diagnostykę wykonuj tylko w kontrolowanym środowisku, bo log może być długi (`PLANNED`).
+
+### Różnica między skryptem i modułem
+
+Jeśli import względny działa przy `python -m pakiet.moduł`, ale nie przy `python plik.py`, porównaj punkt startowy, strukturę pakietu i `sys.path`. Nie zmieniaj importów na ślepo. Udokumentuj preferowany sposób uruchomienia (`NEEDS_VERIFICATION`).
+
+### Podejrzenie wpływu zmiennych środowiskowych
+
+Sprawdź `PYTHONPATH` i `PYTHONHOME`, ponieważ mogą zmieniać wyszukiwanie lub prefiksy instalacji [3]. W diagnostyce można rozważyć `-E`, które ignoruje zmienne `PYTHON*`, oraz `-I`, które uruchamia tryb izolowany; ich użycie zmienia zachowanie procesu i wymaga uzasadnienia dla projektu [5]. Nie ustawiaj globalnych zmiennych jako trwałej „naprawy” bez weryfikacji.
+
+## Ograniczenia
+
+- Dokument opisuje CPython i standardową dokumentację Python; inne implementacje mogą mieć odmienne interfejsy wiersza poleceń (`SOURCE_VERIFIED` dla zastrzeżenia w dokumentacji poleceń) [5].
+- `venv` nie gwarantuje zgodności bibliotek, sterowników, backendów ani modeli. Izoluje przede wszystkim instalowane pakiety, ale bazuje na istniejącym interpreterze [2].
+- Oficjalna dokumentacja opisuje mechanizm ogólny, nie stan żadnej konkretnej maszyny, aplikacji ani repozytorium projektu.
+- Pakiety z rozszerzeniami binarnymi mogą mieć dodatkowe wymagania; ich dostępność i instalowalność trzeba sprawdzić dla platformy projektu (`NEEDS_VERIFICATION`).
+- `sys.path` można zmieniać programowo, lecz taka zmiana może maskować błąd konfiguracji i nie jest uniwersalnym rozwiązaniem.
+- Wpis nie zawiera pinów wersji, wyników instalacji, wyników testów ani deklaracji zgodności z konkretnym projektem.
+- Mapa repozytorium i dokumentacja mogą się zdezaktualizować; przed użyciem ponownie sprawdź źródła oraz faktyczny kod i środowisko.
+
+## Źródła
+
+1. Oficjalna dokumentacja Python, „Installing Python modules” — instalowanie pakietów, `pip`, `venv`, praca z wieloma wersjami i typowe problemy; `SOURCE_VERIFIED`: https://docs.python.org/3/installing/index.html [1]
+2. Oficjalna dokumentacja Python, „venv — Creation of virtual environments” — tworzenie, izolacja, aktywacja i właściwości środowisk wirtualnych; `SOURCE_VERIFIED`: https://docs.python.org/3/library/venv.html [2]
+3. Oficjalna dokumentacja Python, „The initialization of the sys.path module search path” — inicjalizacja `sys.path`, `PYTHONPATH`, `PYTHONHOME` i prefiksy środowisk; `SOURCE_VERIFIED`: https://docs.python.org/3/library/sys_path_init.html [3]
+4. Oficjalna dokumentacja Python, „The import system” — `sys.modules`, findery, loadery i wyszukiwanie modułów; `SOURCE_VERIFIED`: https://docs.python.org/3/reference/import.html [4]
+5. Oficjalna dokumentacja Python, „Command line and environment” — `-m`, `-v`, `-E`, `-I`, `sys.path` i tryby uruchamiania; `SOURCE_VERIFIED`: https://docs.python.org/3/using/cmdline.html [5]
+6. Oficjalna dokumentacja repozytorium `AI-KNOWLEDGE-BASE` w `AGENTS.md` i `README.md` — warstwy `knowledge/`, zasady źródeł, statusy i zakaz deklarowania nieprzeprowadzonych testów; `SOURCE_VERIFIED` na podstawie plików repozytorium.
+
+## Kontrola przed użyciem wpisu
+
+- [ ] Czy agent przeczytał `AGENTS.md`, `README.md` oraz właściwą dokumentację projektu?
+- [ ] Czy ustalono dokładny interpreter, wersję i ścieżkę pakietów?
+- [ ] Czy wymagania wersji pochodzą ze źródła konkretnego projektu, a nie z domysłu?
+- [ ] Czy każda obserwacja ma status `REPORTED`, `NEEDS_VERIFICATION` albo `PLANNED`, jeśli nie jest potwierdzona źródłem?
+- [ ] Czy nie zadeklarowano `LOCALLY_TESTED` bez zapisanego testu i wyniku?
+- [ ] Czy wspólna wiedza nie została skopiowana do dokumentacji projektu?

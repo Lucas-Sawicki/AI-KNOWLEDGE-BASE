@@ -1,0 +1,223 @@
+# GPU Backend — architektura
+
+> **Zakres dokumentu:** architektura i procedura pracy z lokalnym GPU oraz opcjonalnym zdalnym backendem GPU. Dokument nie deklaruje, że którekolwiek środowisko zostało uruchomione lub przetestowane.
+>
+> **Status dokumentu:** `REPORTED` dla założeń zapisanych w `AGENTS.md` i `README.md`; `SOURCE_VERIFIED` dla odwołań do oficjalnej dokumentacji wymienionych w sekcji [Źródła](#źródła); `NEEDS_VERIFICATION` dla parametrów konkretnego komputera, modelu i instalacji.
+
+## 1. Cel
+
+GPU Backend ma zapewnić powtarzalny, kontrolowany sposób wykonywania obciążeń AI — w szczególności workflow ComfyUI i treningu/eksportu LoRA — z priorytetem dla lokalnej karty GPU. Zdalny backend, w tym Kaggle, jest wyłącznie opcjonalnym zasobem obliczeniowym i może być użyty dopiero po decyzji użytkownika.
+
+Cele operacyjne:
+
+- ograniczenie kopiowania danych między CPU, RAM, VRAM i dyskiem;
+- dobór obciążenia do dostępnej pamięci VRAM i RAM;
+- rozdzielenie konfiguracji środowiska od konfiguracji konkretnego modelu i zadania;
+- możliwość odtworzenia procedury na podstawie jawnych wejść, parametrów i artefaktów;
+- bezpieczne przełączanie między lokalnym GPU a zatwierdzonym backendem zewnętrznym.
+
+**Status:** `REPORTED` — cel wynika z zasad repozytorium. Konkretne cele wydajnościowe nie są ustalone (`NEEDS_VERIFICATION`).
+
+## 2. Zakres i poza zakresem
+
+### W zakresie
+
+- lokalny backend Windows z ComfyUI;
+- warstwa sterownika i bibliotek GPU (wersje do sprawdzenia w danym środowisku);
+- pamięć i przepływ danych: VRAM, RAM, CPU oraz dysk;
+- opcjonalny backend Kaggle lub inna usługa zewnętrzna, uruchamiana ręcznie i za zgodą użytkownika;
+- przygotowanie danych LoRA, konfiguracja treningu, checkpointy i eksport jako osobne etapy;
+- diagnostyka, testy dymne i rejestrowanie statusów.
+
+### Poza zakresem
+
+- automatyczne uruchamianie Kaggle lub jakiejkolwiek usługi zewnętrznej;
+- potwierdzanie dostępności, kosztu, limitów lub czasu działania zasobów zewnętrznych;
+- instalowanie lub modyfikowanie lokalnej instalacji Windows/ComfyUI bez analizy i zgody;
+- wybór konkretnego modelu, LoRA, workflow, batch size lub parametrów treningu bez danych o modelu i GPU;
+- przechowywanie sekretów, tokenów i kluczy API w repozytorium.
+
+**Status:** `REPORTED` dla granic wynikających z zasad repozytorium; `PLANNED` dla przyszłej automatyzacji, która nie jest obecnie opisana jako dostępna.
+
+## 3. Architektura logiczna
+
+```text
+                  +-----------------------------+
+                  |  Orkiestracja zadania       |
+                  |  workflow / trening / export|
+                  +--------------+--------------+
+                                 |
+                  +--------------v--------------+
+                  |  Adapter backendu GPU       |
+                  |  wybór lokalny / zewnętrzny |
+                  +-----------+---------+-------+
+                              |         |
+             +----------------v--+   +--v----------------+
+             | Lokalny backend    |   | Backend zewnętrzny|
+             | Windows + ComfyUI  |   | np. Kaggle         |
+             +---------+----------+   +---------+----------+
+                       |                        |
+             +---------v----------+   +---------v----------+
+             | Runtime GPU        |   | Runtime notebooka  |
+             | sterownik +        |   | + GPU dostawcy     |
+             | biblioteki         |   | (do weryfikacji)   |
+             +---------+----------+   +--------------------+
+                       |
+             +---------v-------------------------------+
+             | VRAM / RAM / CPU / dysk / artefakty      |
+             +------------------------------------------+
+```
+
+### Odpowiedzialności warstw
+
+1. **Orkiestracja zadania** — opisuje wejścia, oczekiwany artefakt, parametry i kryterium zakończenia. Nie powinna zakładać konkretnego backendu.
+2. **Adapter backendu** — wybiera zatwierdzone środowisko i przekazuje mu jawne parametry. Automatyczny fallback do Kaggle jest niezaimplementowany (`PLANNED`).
+3. **Lokalny backend** — korzysta z lokalnego Windows/ComfyUI i lokalnej pamięci GPU. Dostępność konkretnej karty, sterownika i bibliotek wymaga sprawdzenia (`NEEDS_VERIFICATION`).
+4. **Backend zewnętrzny** — jest osobnym środowiskiem wykonawczym. Kopiowanie danych, uwierzytelnienie, limity i koszty wymagają każdorazowej decyzji i weryfikacji (`NEEDS_VERIFICATION`).
+5. **Warstwa pamięci i artefaktów** — kontroluje rozmiar batcha, offload, checkpointy, logi i miejsce na dysku. Wartości nie są globalnie ustalone.
+
+## 4. Wymagania
+
+### 4.1. Lokalne
+
+- Windows z dostępem do lokalnego GPU — sprzęt i dostępność VRAM: `NEEDS_VERIFICATION`;
+- instalacja ComfyUI pod ścieżką referencyjną:
+  `E:\AI AGENTS\ComfyUI_windows_portable`;
+- interpreter ComfyUI:
+  `E:\AI AGENTS\ComfyUI_windows_portable\python_embeded\python.exe`;
+- zgodny sterownik GPU i runtime bibliotek — wersje oraz zgodność: `NEEDS_VERIFICATION`;
+- wystarczająca ilość RAM i wolnego miejsca na dysku — wartości: `NEEDS_VERIFICATION`;
+- dostęp do modeli, workflow i danych, z zachowaniem ich licencji i pochodzenia.
+
+Nie mam dostępu do wskazanej ścieżki Windows; powyższa ścieżka jest wymaganiem referencyjnym, a nie potwierdzeniem instalacji.
+
+### 4.2. Zewnętrzne/Kaggle
+
+- konto i uprawnienia dostawcy, jeśli użytkownik zdecyduje o użyciu;
+- zatwierdzony sposób uwierzytelnienia poza repozytorium;
+- notebook lub skrypt przygotowany dla konkretnego zadania;
+- potwierdzenie dostępności akceleratora, limitów, danych i miejsca na artefakty.
+
+Nie zakłada się automatycznego uruchamiania, bezpłatności ani nieprzerwanej dostępności Kaggle lub innych usług (`NEEDS_VERIFICATION`).
+
+## 5. Konfiguracja
+
+Konfiguracja powinna być jawna, wersjonowana bez sekretów i rozdzielona na profile backendu. Poniższe pola są kontraktem dokumentacyjnym, nie gotowym plikiem konfiguracyjnym:
+
+```yaml
+backend: local        # local albo external; wybór zadania wymaga decyzji użytkownika
+comfyui_root: "E:\\AI AGENTS\\ComfyUI_windows_portable"
+python_executable: "E:\\AI AGENTS\\ComfyUI_windows_portable\\python_embeded\\python.exe"
+model_paths: []       # do uzupełnienia i weryfikacji
+workflow_path: null   # do uzupełnienia i weryfikacji
+output_dir: null      # do uzupełnienia i weryfikacji
+external_provider: null
+```
+
+- Nie wpisuj tokenów, haseł ani kluczy do tego repozytorium.
+- `model_paths`, `workflow_path` i `output_dir` muszą wskazywać istniejące zasoby dopiero po sprawdzeniu w docelowym środowisku.
+- Nie ustalaj wersji Pythona, PyTorch, CUDA, ComfyUI ani sterownika bez odczytu z konkretnej instalacji (`NEEDS_VERIFICATION`).
+- Ustawienia zależne od modelu/GPU, takie jak dtype, rozdzielczość, batch size, gradient accumulation, offload, liczba kroków i learning rate, wymagają osobnej weryfikacji (`NEEDS_VERIFICATION`).
+
+**Status:** `PLANNED` — przedstawiony YAML jest szablonem do zatwierdzenia, a nie potwierdzoną konfiguracją.
+
+## 6. Procedura użycia
+
+### 6.1. Wybór backendu
+
+1. Zdefiniuj zadanie, wejścia, oczekiwany artefakt i kryterium zakończenia.
+2. Wybierz lokalny backend jako domyślny, jeśli lokalny GPU spełnia wymagania.
+3. Jeśli potrzebny jest backend zewnętrzny, uzyskaj wyraźną zgodę użytkownika oraz sprawdź dostępność, limity, dane i koszty przed uruchomieniem.
+4. Zapisz wybrany backend i identyfikator zadania w logu; nie przełączaj backendu automatycznie.
+
+### 6.2. Lokalny ComfyUI
+
+Na komputerze Windows, poza tym środowiskiem, użytkownik może zweryfikować instalację poleceniami PowerShell:
+
+```powershell
+$root = 'E:\AI AGENTS\ComfyUI_windows_portable'
+$python = Join-Path $root 'python_embeded\python.exe'
+Test-Path $root
+Test-Path $python
+& $python --version
+```
+
+Następnie należy sprawdzić wersje i dostępność GPU zgodnie z dokumentacją konkretnej instalacji, uruchomić minimalny, znany workflow oraz zachować log i artefakt wyjściowy. Nie podano komendy startowej ComfyUI, ponieważ zależy ona od dystrybucji i sposobu instalacji (`NEEDS_VERIFICATION`).
+
+### 6.3. Backend Kaggle/usługa zewnętrzna
+
+1. Przygotuj notebook/skrypt i jawny manifest wejść.
+2. Zweryfikuj ręcznie dostęp do akceleratora, wersje środowiska, limity, miejsce i politykę danych.
+3. Uruchom dopiero po zatwierdzeniu użytkownika.
+4. Zapisz logi, checkpointy i wynik w uzgodnionym miejscu.
+5. Po zakończeniu usuń lub zabezpiecz dane tymczasowe zgodnie z ich klasyfikacją.
+
+Automatyczne wywołanie API, harmonogram i transfer danych są poza zakresem (`PLANNED`).
+
+## 7. LoRA: rozdzielone etapy
+
+Proces LoRA nie jest jednym poleceniem backendu. Każdy etap powinien mieć osobne wejścia, parametry i artefakty:
+
+1. **Przygotowanie danych** — selekcja i legalność danych, czyszczenie, format, podpisy/opisy, podział oraz kontrola jakości. Wynik: zatwierdzony zbiór danych i manifest. Metoda i narzędzia: `NEEDS_VERIFICATION`.
+2. **Konfiguracja treningu** — wybór bazowego modelu, typu LoRA, rozdzielczości, batch size, learning rate, liczby kroków/epok, dtype, akumulacji gradientu i strategii pamięci. Wszystkie ustawienia zależne od modelu/GPU: `NEEDS_VERIFICATION`.
+3. **Checkpointy** — ustalenie częstotliwości, nazewnictwa, lokalizacji, retencji i sposobu wznowienia. Konkretne formaty i ścieżki: `NEEDS_VERIFICATION`.
+4. **Eksport** — wybór formatu, metadanych, kompatybilności z docelowym loaderem oraz testu artefaktu. Komenda eksportu i format wynikowy: `NEEDS_VERIFICATION`.
+
+Nie należy traktować żadnej wartości hiperparametru jako uniwersalnej. Każda propozycja bez potwierdzenia na docelowym modelu i GPU ma status `PLANNED`.
+
+## 8. Testowanie
+
+Nie wykonano testów lokalnego Windows, ComfyUI, Kaggle ani GPU w ramach przygotowania tego dokumentu (`NEEDS_VERIFICATION`). Poniższa lista jest procedurą do wykonania, a nie raportem wyników:
+
+- **test środowiska:** potwierdź ścieżkę katalogu, interpreter, wersje bibliotek i wykrywanie GPU;
+- **test pamięci:** uruchom minimalne zadanie i zapisz zużycie VRAM/RAM oraz ewentualny błąd OOM;
+- **test ComfyUI:** wykonaj znany, minimalny workflow z kontrolowanym wejściem i zachowaj wynik;
+- **test wznowienia:** utwórz checkpoint w kontrolowanym zadaniu, przerwij i sprawdź wznowienie;
+- **test LoRA:** użyj małego, zatwierdzonego zbioru danych, sprawdź zapis checkpointu i odczyt eksportu;
+- **test artefaktów:** sprawdź, czy pliki wynikowe istnieją, mają oczekiwany format i dają się ponownie załadować;
+- **test zewnętrzny:** tylko po zgodzie użytkownika; porównaj manifest wejścia, log, limit zasobów i kompletność pobranego wyniku.
+
+Raport testu powinien zawierać datę, środowisko, identyfikator zadania, rzeczywiste wersje, komendę/workflow, wynik i log błędów. Brak raportu oznacza brak potwierdzenia (`NEEDS_VERIFICATION`).
+
+## 9. Diagnostyka
+
+| Objaw | Sprawdzenia | Działanie ostrożne |
+|---|---|---|
+| GPU niewidoczne | sterownik, interpreter, runtime, dostęp procesu do GPU | nie zmieniaj losowo wersji; zbierz wersje i log |
+| OOM VRAM | rozmiar modelu, batch size, rozdzielczość, dtype, inne procesy GPU | zmniejsz obciążenie dopiero po zatwierdzeniu parametrów dla modelu |
+| OOM RAM/dysk | rozmiar datasetu, checkpointy, cache, wolne miejsce | ogranicz retencję/cache po zabezpieczeniu artefaktów |
+| Workflow nie ładuje modelu | ścieżki, nazwa pliku, zgodność loadera i format | zweryfikuj źródło modelu oraz ścieżkę; nie pobieraj nieznanych plików |
+| Trening nie daje artefaktu | log, katalog wyjściowy, uprawnienia, przerwanie procesu | nie deklaruj sukcesu bez pliku i testu ponownego odczytu |
+| Backend zewnętrzny nie działa | dostępność usługi, limity, uprawnienia, wersje notebooka | zatrzymaj próbę i poproś o decyzję; nie włączaj automatycznego fallbacku |
+
+## 10. Ograniczenia i ryzyka
+
+- Rzeczywista kompatybilność zależy od GPU, sterownika, runtime, modelu i wersji bibliotek; w tym dokumencie nie podano niezweryfikowanych numerów wersji.
+- Manus nie ma automatycznego dostępu do lokalnych ścieżek Windows; nie potwierdzono stanu `E:\AI AGENTS\ComfyUI_windows_portable`.
+- Kaggle i inne usługi zewnętrzne nie są gwarantowanym ani automatycznym backendem. Dostępność, limity i koszty trzeba sprawdzić przed użyciem.
+- Offload może zmniejszyć presję na VRAM kosztem czasu i transferów; dobór strategii jest zależny od zadania (`NEEDS_VERIFICATION`).
+- Checkpoint nie jest automatycznie równoważny finalnemu eksportowi; oba artefakty muszą być opisane i osobno zweryfikowane.
+- Dane i modele mogą podlegać licencjom lub ograniczeniom prywatności; dokument nie zastępuje ich analizy.
+- Brak wyniku testu oznacza brak podstaw do oznaczenia systemu jako działający.
+
+## 11. Statusy informacji
+
+- `SOURCE_VERIFIED` — informacja potwierdzona w wskazanym źródle oficjalnym; nie oznacza, że została uruchomiona lokalnie.
+- `REPORTED` — informacja przyjęta z dokumentacji tego repozytorium lub raportu użytkownika, bez niezależnego testu w bieżącym środowisku.
+- `NEEDS_VERIFICATION` — informacja zależna od konkretnego sprzętu, instalacji, modelu, usługi albo wyniku testu.
+- `PLANNED` — zamierzona funkcja, szablon lub procedura, której implementacji/dostępności nie potwierdzono.
+- `LOCALLY_TESTED` — oznaczenie do użycia dopiero po zapisaniu reprodukowalnego testu wykonanego w lokalnym środowisku; w tej wersji dokumentu brak pozycji o tym statusie.
+
+## 12. Źródła
+
+Źródła oficjalne użyte jako punkty odniesienia architektury i procedur:
+
+- `REPORTED`: `AGENTS.md` w repozytorium AI-KNOWLEDGE-BASE — zasady lokalnego Windows, ComfyUI, GPU, Kaggle i testowania.
+- `REPORTED`: `README.md` w repozytorium AI-KNOWLEDGE-BASE — zakres projektu GPU Backend i model zarządzania zmianami.
+- `SOURCE_VERIFIED`: ComfyUI, repozytorium projektu: <https://github.com/comfyanonymous/ComfyUI>.
+- `SOURCE_VERIFIED`: PyTorch, dokumentacja CUDA semantics: <https://pytorch.org/docs/stable/notes/cuda.html>.
+- `SOURCE_VERIFIED`: NVIDIA CUDA Memory Management: <https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#device-memory>.
+- `SOURCE_VERIFIED`: Kaggle Notebooks documentation: <https://www.kaggle.com/docs/notebooks>.
+- `SOURCE_VERIFIED`: dokumentacja formatu safetensors: <https://huggingface.co/docs/safetensors/index>.
+
+Jeśli implementacja projektu doda konkretne skrypty, workflow lub pliki konfiguracyjne, należy dopisać dla każdego pliku jego oficjalne źródło albo oznaczyć go jako `PLANNED`; nie wolno przedstawiać przykładowego szablonu jako istniejącego artefaktu.

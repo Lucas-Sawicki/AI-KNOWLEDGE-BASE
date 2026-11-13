@@ -1,0 +1,51 @@
+# AI Agents — Serwery MCP
+
+## Cel
+
+Dokument opisuje wybór, rejestrację i bezpieczne używanie serwerów Model Context Protocol (MCP) przez agenta AI.
+
+## Status informacji
+
+Informacje o modelu MCP oznaczono `SOURCE_VERIFIED` na podstawie oficjalnej dokumentacji protokołu. Integracje projektu Android AI są `REPORTED`, jeśli nie ma kodu, konfiguracji lub logów pozwalających je odtworzyć.
+
+## Model MCP
+
+MCP jest protokołem JSON-RPC łączącym hosta AI z serwerami udostępniającymi narzędzia, zasoby i prompty. Serwer może deklarować capabilities oraz wersję protokołu. Klient powinien wykonać negocjację i nie zakładać, że każde narzędzie lub pole istnieje w każdej wersji.
+
+Warstwa transportu i warstwa danych są odrębne. W praktyce trzeba rozróżnić co najmniej lokalny transport stdio oraz transport HTTP używany przez konkretną implementację. Dokumentacja serwera musi wskazywać transport, komendę uruchomieniową, wersję protokołu, wymagane zależności i model uwierzytelniania.
+
+## Rejestr serwerów
+
+Dla każdego serwera utrzymuj manifest zawierający:
+
+- nazwę i właściciela;
+- źródło oraz wersję pakietu;
+- transport i endpoint/komendę;
+- listę wymaganych sekretów bez zapisywania ich wartości;
+- tools, resources i prompts;
+- zakres uprawnień;
+- politykę danych i egress;
+- sposób aktualizacji i rollbacku;
+- wynik testów importu, handshake i wywołania.
+
+Taki manifest jest `PLANNED`; repozytorium nie zawiera jeszcze centralnego pliku rejestru MCP.
+
+## Bezpieczeństwo
+
+Serwer MCP jest kodem lub usługą zewnętrzną i nie może być traktowany jako zaufany tylko dlatego, że jest dostępny przez standardowy protokół. Przed użyciem sprawdź źródło, wersję, licencję, zależności, zakres operacji i możliwość dostępu do sieci lub plików.
+
+Dla HTTP MCP oficjalna specyfikacja zaleca OAuth 2.1, gdy autoryzacja jest obsługiwana; token należy przesyłać jako `Authorization: Bearer ...`, a nie w query string. Dla stdio poświadczenia powinny pochodzić ze środowiska procesu. Nie zapisuj tokenów w repozytorium, logach ani promptach (`SOURCE_VERIFIED`).
+
+Broker agenta powinien stosować allowlistę serwerów i narzędzi, walidować schemat wejścia, ograniczać czas i rozmiar odpowiedzi oraz rejestrować wynik bez ujawniania sekretów. Instalacja lub aktualizacja serwera nie powinna być wykonywana automatycznie na podstawie sugestii LLM.
+
+## Diagnostyka
+
+Przy problemie z MCP zapisz: wersję klienta i serwera, transport, komendę bez sekretów, wersję protokołu, wynik handshake, nazwę metody JSON-RPC, kod błędu i skrócony bezpieczny log. Rozdziel błąd transportu, autoryzacji, negocjacji capability, walidacji schematu i wykonania narzędzia.
+
+## Status projektu
+
+- `SOURCE_VERIFIED`: MCP jako JSON-RPC z tools/resources/prompts oraz rozdziałem danych i transportu.
+- `SOURCE_VERIFIED`: zasady Bearer tokenów dla HTTP i środowiskowych poświadczeń dla stdio.
+- `REPORTED`: architektura brokera i allowlisty wynikająca z analizy Android AI.
+- `PLANNED`: manifest serwerów, conformance harness i testy negatywne.
+- `LOCALLY_TESTED`: nie wykonano.

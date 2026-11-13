@@ -1,0 +1,153 @@
+# Indeks projektów dokumentacji
+
+> **Status indeksu:** `SOURCE_VERIFIED` dla struktury odczytanej z `AGENTS.md`, `README.md` i katalogów `projects`; `REPORTED` dla zakresu projektów opisanych w repozytorium; `NEEDS_VERIFICATION` dla aktualności, kompletności i działania środowisk; `PLANNED` dla elementów zamierzonych lub niepotwierdzonych. `LOCALLY_TESTED` nie jest deklarowany.
+
+## 1. Cel i zakres
+
+Ten plik jest punktem wejścia do dokumentacji wszystkich projektów w `AI-KNOWLEDGE-BASE`. Pomaga agentowi AI ustalić, gdzie szukać informacji, rozróżnić dokumentację projektu od wspólnej wiedzy, standardów i szablonów oraz nie traktować obecności pliku jako dowodu implementacji, dostępności środowiska lub pomyślnego testu.
+
+Repozytorium dzieli informacje na:
+
+- `projects/` — dokumentację poszczególnych projektów;
+- `knowledge/` — wspólną wiedzę technologiczną;
+- `standards/` — normy, zasady i kryteria;
+- `templates/` — szablony do uzupełnienia.
+
+Wspólne zasady należy utrzymywać w `knowledge/` lub `standards/`, bez duplikowania ich w każdym projekcie. Szablonu nie wolno przedstawiać jako gotowej implementacji. **Status:** `SOURCE_VERIFIED` dla podziału katalogów; aktualność treści wymaga `NEEDS_VERIFICATION`.
+
+## 2. Mapa istniejących obszarów
+
+Mapa odpowiada plikom obecnym w `projects/` podczas przygotowania tego indeksu. `REPORTED` oznacza fakt wynikający z odczytu repozytorium, nie działanie systemu.
+
+### AI Agents — [`projects/ai-agents/`](./ai-agents/)
+
+Cel: architektura agentów AI, MCP, pamięć i RAG (`REPORTED`).
+
+- [`index.mdx`](./ai-agents/index.mdx) — indeks i zasady (`REPORTED`);
+- [`architecture.mdx`](./ai-agents/architecture.mdx) — architektura (`REPORTED`);
+- [`mcp-servers.mdx`](./ai-agents/mcp-servers.mdx) — serwery MCP (`REPORTED`);
+- [`memory-rag.mdx`](./ai-agents/memory-rag.mdx) — pamięć i RAG (`REPORTED`).
+
+Opis architektury nie potwierdza rejestracji, działania ani bezpieczeństwa konkretnej integracji (`NEEDS_VERIFICATION`).
+
+### ComfyUI — [`projects/comfyui/`](./comfyui/)
+
+Cel: lokalne środowisko ComfyUI, API, workflow, custom nodes i optymalizacja (`REPORTED`).
+
+- [`index.mdx`](./comfyui/index.mdx) — indeks (`REPORTED`);
+- [`api.mdx`](./comfyui/api.mdx) — API (`REPORTED`);
+- [`custom-nodes.mdx`](./comfyui/custom-nodes.mdx) — własne węzły (`REPORTED`);
+- [`optimization.mdx`](./comfyui/optimization.mdx) — optymalizacja (`REPORTED`);
+- [`workflows.mdx`](./comfyui/workflows.mdx) — workflow (`REPORTED`).
+
+Ścieżki Windows, wersje bibliotek, GPU, poprawność workflow i wyniki testów wymagają sprawdzenia w konkretnym środowisku (`NEEDS_VERIFICATION`). ComfyUI pozostaje głównym lokalnym środowiskiem pracy; zdalny backend nie jest automatycznym zamiennikiem.
+
+### GPU Backend — [`projects/gpu-backend/`](./gpu-backend/)
+
+Cel: lokalne GPU oraz opcjonalny, ręcznie zatwierdzany backend zewnętrzny (`REPORTED`).
+
+- [`index.mdx`](./gpu-backend/index.mdx) — architektura i procedura (`REPORTED`);
+- [`local-gpu.mdx`](./gpu-backend/local-gpu.mdx) — lokalne GPU (`REPORTED`);
+- [`kaggle-backend.mdx`](./gpu-backend/kaggle-backend.mdx) — backend Kaggle (`REPORTED`).
+
+Kaggle i inne zasoby zewnętrzne wymagają decyzji użytkownika oraz sprawdzenia dostępności, limitów, danych, kosztów i uwierzytelnienia (`NEEDS_VERIFICATION`). Automatyczne przełączanie backendu jest `PLANNED`, jeśli nie potwierdzono inaczej.
+
+### LoRA Training Studio — [`projects/lora-training-studio/`](./lora-training-studio/)
+
+Cel: dane, trening adaptera LoRA, checkpointy, eksport i użycie (`REPORTED`).
+
+- [`index.mdx`](./lora-training-studio/index.mdx) — indeks etapów (`REPORTED`);
+- [`training.mdx`](./lora-training-studio/training.mdx) — trening (`REPORTED`);
+- [`export.mdx`](./lora-training-studio/export.mdx) — eksport (`REPORTED`);
+- [`kaggle-notebook.mdx`](./lora-training-studio/kaggle-notebook.mdx) — wariant Kaggle (`REPORTED`).
+
+Parametry zależne od modelu, danych, GPU, bibliotek i narzędzia nie są uniwersalne (`NEEDS_VERIFICATION`). Brak logu, artefaktu lub powtarzalnego testu nie pozwala oznaczyć procesu jako działającego. Automatyczne uruchamianie Kaggle i publikacja artefaktów są `PLANNED` lub `NEEDS_VERIFICATION`.
+
+## 3. Wspólne zasady dla agenta AI
+
+1. Najpierw przeczytaj `AGENTS.md`, `README.md`, właściwy indeks projektu, dokumenty szczegółowe i istniejący kod. Nie zakładaj aktualności dokumentacji.
+2. Szczegóły projektu zapisuj w `projects/`, wiedzę wielokrotnego użytku w `knowledge/`, normy i kryteria w `standards/`, a pola do uzupełnienia w `templates/`.
+3. Nie wymyślaj API, parametrów, wersji, komend, skryptów, wyników ani statusu implementacji bez źródła lub testu.
+4. Nie zapisuj tokenów, kluczy API, haseł ani prywatnych konfiguracji.
+5. Przed publikacją lub scaleniem uzyskaj akceptację użytkownika.
+6. Nie deklaruj sukcesu bez testu z opisanym środowiskiem, wejściami, komendą/workflow, rezultatem i logiem.
+7. Nie zmieniaj samodzielnie celu, promptów, parametrów kreatywnych, backendu ani kosztownych zasobów.
+
+## 4. Normy i kryteria
+
+Każda strona powinna — stosownie do tematu — zawierać cel, zakres, architekturę lub zasady, wymagania, procedurę użycia, testowanie, diagnostykę, ograniczenia i źródła. Konfiguracja ma być jawna, wersjonowana i bez sekretów. Element planowany oznacz `PLANNED`, zależny od środowiska `NEEDS_VERIFICATION`, a informację z repozytorium lub raportu bez niezależnego testu `REPORTED`. `SOURCE_VERIFIED` oznacza potwierdzenie w oficjalnym źródle i nie oznacza testu lokalnego. `LOCALLY_TESTED` wolno użyć tylko dla rzeczywistego, reprodukowalnego testu z zapisanym wynikiem. Są to kryteria dokumentowania, nie deklaracja implementacji (`REPORTED`).
+
+## 5. Procedura użycia indeksu
+
+1. Zidentyfikuj projekt i problem.
+2. Otwórz właściwy indeks z mapy.
+3. Przejdź do dokumentu szczegółowego i sprawdź jego status.
+4. Sprawdź `knowledge/` dla wiedzy wspólnej oraz `standards/` dla kryteriów.
+5. Dla zadań wykonawczych sprawdź rzeczywisty kod, konfigurację i środowisko.
+6. Oznacz każde twierdzenie właściwym statusem.
+7. Zapisz wymagania, zależności, procedurę, test i ograniczenia.
+8. Zweryfikuj spójność i przedstaw zmianę użytkownikowi do akceptacji.
+
+## 6. Testowanie i diagnostyka
+
+Nie wykonano testów lokalnych Windows, ComfyUI, GPU, Kaggle ani treningu LoRA podczas przygotowania tego pliku. `LOCALLY_TESTED` nie jest deklarowany. Przyszła weryfikacja powinna obejmować: sprawdzenie wszystkich linków, porównanie mapy z rzeczywistą zawartością `projects/`, kontrolę statusów i sekretów oraz — dla zmian projektowych — osobny test w docelowym środowisku z zapisanym wynikiem. Brak pliku, linku lub artefaktu oznacz `NEEDS_VERIFICATION` albo `PLANNED`, nie wyciągaj wniosku o działaniu z samej nazwy.
+
+## 7. Ograniczenia
+
+Indeks jest mapą dokumentacji, nie rejestrem działających usług ani kompletnym raportem implementacji. Stan plików może się zmienić. `REPORTED` nie jest niezależnym potwierdzeniem, a `SOURCE_VERIFIED` nie oznacza uruchomienia lokalnego. Brak dostępu do Windows uniemożliwia potwierdzenie instalacji i testów lokalnych. Zewnętrzne usługi, limity, koszty, wersje i kompatybilność wymagają każdorazowej weryfikacji.
+
+## 8. Jawne statusy
+
+- `SOURCE_VERIFIED` — informacja potwierdzona w przywołanym oficjalnym źródle; nie oznacza testu lokalnego.
+- `REPORTED` — informacja z repozytorium, polecenia użytkownika lub raportu, bez niezależnego testu w bieżącej sesji.
+- `NEEDS_VERIFICATION` — wymaga sprawdzenia w kodzie, środowisku, modelu, wersji, usłudze lub wyniku testu.
+- `PLANNED` — zamierzony element, procedura lub szablon bez potwierdzonej implementacji lub dostępności.
+- `LOCALLY_TESTED` — rzeczywisty, reprodukowalny test lokalny z zapisanym wynikiem; w tym indeksie nie występuje.
+
+## 9. Szablon nowej strony projektu
+
+Poniższy układ jest szablonem (`PLANNED`), a nie deklaracją istniejącego artefaktu:
+
+```md
+# [Nazwa projektu]
+
+> Status dokumentu: [SOURCE_VERIFIED/REPORTED/NEEDS_VERIFICATION/PLANNED/LOCALLY_TESTED]
+
+## Cel
+[Co dokument opisuje i dla kogo]
+
+## Zakres i poza zakresem
+[Elementy objęte i wyłączone]
+
+## Architektura lub zasady
+[Warstwy, przepływ, odpowiedzialności; bez niezweryfikowanych API]
+
+## Wymagania
+[Środowisko, zależności, wersje tylko ze źródłem]
+
+## Procedura użycia
+[Jawne kroki i wejścia]
+
+## Testowanie
+[Komenda/workflow, środowisko, wynik; brak wyniku = NEEDS_VERIFICATION]
+
+## Diagnostyka
+[Objaw, sprawdzenia, ostrożne działanie]
+
+## Ograniczenia
+[Znane granice i ryzyka]
+
+## Statusy
+[Status każdego istotnego twierdzenia]
+
+## Źródła
+[Oficjalne URL-e lub ścieżki repozytorium]
+```
+
+## 10. Źródła
+
+- `SOURCE_VERIFIED`: [`AGENTS.md`](../AGENTS.md) — nadrzędne zasady, struktura bazy, procedura pracy, środowisko i wymagania testowania.
+- `SOURCE_VERIFIED`: [`README.md`](../README.md) — cel repozytorium, architektura, mapa projektów i zasady dokumentowania.
+- `SOURCE_VERIFIED`: istniejące katalogi i pliki pod [`projects/`](.) odczytane podczas przygotowania indeksu.
+- `REPORTED`: [`ai-agents/index.mdx`](./ai-agents/index.mdx), [`comfyui/index.mdx`](./comfyui/index.mdx), [`gpu-backend/index.mdx`](./gpu-backend/index.mdx), [`lora-training-studio/index.mdx`](./lora-training-studio/index.mdx).
+- `NEEDS_VERIFICATION`: aktualność opisów, dostępność środowisk, działanie integracji i wyniki testów.

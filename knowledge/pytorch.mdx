@@ -1,0 +1,216 @@
+---
+title: PyTorch: CUDA, pamięć, urządzenia, dtype i diagnostyka
+description: Wspólne zasady używania i diagnozowania PyTorch z CUDA, pamięcią GPU, urządzeniami i typami danych.
+---
+
+# PyTorch: CUDA, pamięć, urządzenia, dtype i diagnostyka
+
+> **Status dokumentu:** `SOURCE_VERIFIED` dla twierdzeń odwołujących się do oficjalnej dokumentacji PyTorch. `NEEDS_VERIFICATION` dla zachowania zależnego od zainstalowanej wersji, sprzętu, sterownika lub backendu. `PLANNED` oznacza zalecenie do wdrożenia w konkretnym projekcie, a nie istniejącą funkcję. `REPORTED` oznacza informację pochodzącą z raportu lub obserwacji, której nie potwierdzono tutaj w środowisku. `LOCALLY_TESTED` nie jest deklarowany w tym dokumencie.
+
+## Cel i zakres
+
+Ten wpis jest wspólną wiedzą dla agentów AI pracujących z PyTorch. Opisuje bezpieczny sposób wyboru urządzenia, kontrolowania `dtype`, rozumienia pamięci CUDA oraz zbierania danych diagnostycznych. Dotyczy kodu korzystającego z API `torch`, w szczególności `torch.cuda`, `torch.device` i właściwości tensorów.
+
+Dokument nie opisuje konfiguracji konkretnego projektu, ComfyUI, ścieżek instalacji Windows, modeli, batch size ani parametrów kreatywnych. Takie szczegóły należą do dokumentacji danego projektu. Nie zakłada też konkretnej wersji PyTorch, CUDA, sterownika ani karty GPU.
+
+## Architektura i zasady
+
+### Urządzenie jest częścią kontraktu danych
+
+Każdy tensor ma `dtype`, `device` i `layout`. `torch.device` opisuje typ urządzenia oraz opcjonalny indeks, na przykład `cpu`, `cuda`, `cuda:0` lub `cuda:1`. Niejawne `cuda` oznacza bieżące urządzenie CUDA; przy kodzie wielokartowym należy preferować jawny indeks, gdy wybór GPU ma znaczenie dla wyniku. [1] `SOURCE_VERIFIED`
+
+Operacje arytmetyczne powinny otrzymywać tensory na zgodnych urządzeniach. Przenoszenie danych powinno być jawne i możliwie rzadkie, na przykład przez `.to(device=...)`. Nie należy zakładać, że ustawienie bieżącego urządzenia przenosi istniejące tensory. [2] `SOURCE_VERIFIED`
+
+### CUDA jest wykonywana asynchronicznie
+
+Operacje GPU są domyślnie kolejkowane asynchronicznie. Oznacza to, że pomiar czasu bez synchronizacji może być nieprawidłowy, a błąd może zostać zgłoszony później niż wywołanie, które go spowodowało. Do dokładnego pomiaru można użyć `torch.cuda.synchronize()` albo `torch.cuda.Event`. Zmienna środowiskowa `CUDA_LAUNCH_BLOCKING=1` wymusza synchroniczne zgłaszanie operacji CUDA i jest narzędziem diagnostycznym, nie uniwersalną optymalizacją. [2] `SOURCE_VERIFIED`
+
+### Dtype jest częścią kontraktu obliczeń
+
+`dtype` określa reprezentację danych i wpływa na zużycie pamięci, zgodność operatorów oraz dokładność. Zawsze sprawdzaj `tensor.dtype` i `tensor.device` przed diagnozowaniem błędu typu lub urządzenia. Przy operacjach z różnymi typami PyTorch stosuje reguły promocji typów; nie należy przewidywać wyniku promocji wyłącznie na podstawie wartości liczbowych. [1] `SOURCE_VERIFIED`
+
+Dobór `dtype` powinien wynikać z wymagań modelu i operatorów. Użycie niższej precyzji albo automatycznego mieszania typów wymaga osobnej walidacji jakości i zgodności dla konkretnego modelu. W tym dokumencie nie deklaruje się, że dowolny model lub GPU obsługuje konkretny `dtype`. `NEEDS_VERIFICATION`
+
+### Pamięć zajęta i pamięć zarezerwowana to różne miary
+
+PyTorch używa buforującego allocatora pamięci CUDA. `torch.cuda.memory_allocated()` i `torch.cuda.max_memory_allocated()` dotyczą pamięci zajętej przez tensory. `torch.cuda.memory_reserved()` i `torch.cuda.max_memory_reserved()` dotyczą pamięci zarządzanej przez allocator. Pamięć nieużywana, ale pozostawiona w cache, może nadal być widoczna jako zajęta w `nvidia-smi`. `torch.cuda.empty_cache()` zwalnia nieużywane bloki cache dla innych aplikacji, ale nie zwalnia pamięci zajętej przez żywe tensory. [2] `SOURCE_VERIFIED`
+
+Różnica między `nvidia-smi`, `memory_reserved()` i `memory_allocated()` nie jest sama w sobie dowodem wycieku. Najpierw trzeba ustalić, czy żywe tensory są nadal referencjonowane, czy allocator przechowuje wolny cache, czy pamięć przydziela biblioteka spoza allocatora PyTorch. `SOURCE_VERIFIED` dla opisu miar; przyczyna konkretnego przypadku `NEEDS_VERIFICATION`.
+
+## Wymagania i kontrola zgodności
+
+Przed uruchomieniem konkretnego zadania trzeba ustalić i zapisać:
+
+- wersję PyTorch, wersję Python, backend oraz sposób instalacji;
+- dostępność CUDA w aktualnym interpreterze;
+- liczbę widocznych urządzeń i wybrane urządzenie;
+- model GPU, sterownik i ograniczenie pamięci;
+- wymagane `dtype` wejścia, modelu, wyjścia i operatorów;
+- oczekiwany budżet VRAM oraz sposób pomiaru szczytu użycia.
+
+Minimalny probe środowiska powinien być uruchamiany w tym samym interpreterze, w którym działa aplikacja. `torch.cuda.is_available()` służy do sprawdzenia, czy PyTorch wykrywa dostępność CUDA; `torch.cuda.device_count()`, `torch.cuda.current_device()`, `torch.cuda.get_device_name()` i `torch.cuda.get_device_properties()` dostarczają dalszych informacji o urządzeniu. [3] `SOURCE_VERIFIED`
+
+Wartości konkretnego środowiska nie są znane na podstawie tego dokumentu. Ich odczyt należy oznaczyć jako wynik lokalnej weryfikacji dopiero po rzeczywistym uruchomieniu probe. `NEEDS_VERIFICATION`
+
+Przykład probe, który nie zmienia konfiguracji aplikacji:
+
+```python
+import torch
+
+print("torch:", torch.__version__)
+print("cuda available:", torch.cuda.is_available())
+
+if torch.cuda.is_available():
+    print("device count:", torch.cuda.device_count())
+    index = torch.cuda.current_device()
+    print("current device:", index)
+    print("device name:", torch.cuda.get_device_name(index))
+    print("device properties:", torch.cuda.get_device_properties(index))
+```
+
+Sam fakt, że moduł `torch.cuda` można zaimportować, nie oznacza dostępności używalnego GPU. Sprawdzenie `is_available()` i późniejszy test operacji należy wykonać w docelowym środowisku. `NEEDS_VERIFICATION`
+
+## Procedura użycia
+
+### 1. Wybierz urządzenie jawnie
+
+```python
+import torch
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+x = torch.randn(8, 16, device=device, dtype=torch.float32)
+print(x.device, x.dtype)
+```
+
+`torch.device("cuda:0")` wybiera konkretny indeks. `torch.device("cuda")` odnosi się do bieżącego urządzenia CUDA. Przy aplikacji wielokartowej wybór musi być zgodny z mechanizmem uruchamiania procesu i widocznością urządzeń. [1] [2] `SOURCE_VERIFIED`; konfiguracja wieloprocesowa `NEEDS_VERIFICATION`.
+
+### 2. Przenoś model i dane w sposób kontrolowany
+
+```python
+model = model.to(device=device)
+batch = batch.to(device=device)
+
+assert batch.device == device
+```
+
+Jeśli model, dane i tensor pomocniczy mają różne urządzenia albo niezgodne typy, najpierw wypisz ich `device` i `dtype`, a dopiero potem zmieniaj kod. Nie ukrywaj takich przeniesień w wielu miejscach, bo utrudnia to analizę kosztu kopiowania i pamięci. `PLANNED` jako zasada projektowa.
+
+### 3. Mierz pamięć przed i po interesującym fragmencie
+
+```python
+import torch
+
+if torch.cuda.is_available():
+    torch.cuda.reset_peak_memory_stats()
+    before_allocated = torch.cuda.memory_allocated()
+    before_reserved = torch.cuda.memory_reserved()
+
+    # fragment kodu do analizy
+    output = model(batch)
+
+    torch.cuda.synchronize()
+    after_allocated = torch.cuda.memory_allocated()
+    after_reserved = torch.cuda.memory_reserved()
+    peak_allocated = torch.cuda.max_memory_allocated()
+    peak_reserved = torch.cuda.max_memory_reserved()
+
+    print({
+        "before_allocated": before_allocated,
+        "after_allocated": after_allocated,
+        "before_reserved": before_reserved,
+        "after_reserved": after_reserved,
+        "peak_allocated": peak_allocated,
+        "peak_reserved": peak_reserved,
+    })
+```
+
+Synchronizacja jest ważna, jeśli pomiar ma odpowiadać zakończeniu pracy GPU. API pomiaru pamięci zwraca wartości w bajtach. [2] `SOURCE_VERIFIED`; poprawność całego pomiaru dla konkretnego przepływu `NEEDS_VERIFICATION`.
+
+### 4. Czyść cache tylko jako działanie celowe
+
+```python
+del output
+if torch.cuda.is_available():
+    torch.cuda.empty_cache()
+```
+
+`empty_cache()` nie zastępuje usunięcia referencji do żywych tensorów i nie zwiększy pamięci dostępnej dla PyTorch, jeśli pamięć jest nadal zajęta przez tensory. Używaj go po zwolnieniu obiektów tylko wtedy, gdy potrzebujesz oddać nieużywany cache innym aplikacjom albo przetestować zachowanie alokatora. [2] `SOURCE_VERIFIED`
+
+## Testowanie
+
+Poniższa procedura jest planem testu do wykonania w docelowym środowisku, a nie raportem wykonanego testu. `PLANNED`; brak statusu `LOCALLY_TESTED`.
+
+1. Uruchom probe z sekcji wymagań i zapisz wersje, dostępność CUDA, indeks oraz nazwę urządzenia.
+2. Utwórz mały tensor CPU i mały tensor na wybranym urządzeniu. Sprawdź `device`, `dtype` i prostą operację.
+3. Przenieś reprezentatywny batch i model na ten sam `device`; sprawdź zgodność urządzeń przed wywołaniem.
+4. Wykonaj reprezentatywny fragment z pomiarem `memory_allocated()`, `memory_reserved()` oraz wartości szczytowych.
+5. Powtórz pomiar po zwolnieniu referencji. Nie interpretuj samego `nvidia-smi` jako miary liczby żywych tensorów.
+6. Jeśli problem jest asynchroniczny, powtórz test z `CUDA_LAUNCH_BLOCKING=1` jako konfiguracją diagnostyczną i porównaj miejsce zgłoszenia błędu.
+7. Zapisz dokładny interpreter, wersje, sprzęt, wejście, `dtype`, wynik i log błędu. Bez tych danych wynik jest `NEEDS_VERIFICATION`.
+
+Nie wolno wpisywać do dokumentacji wyniku testu, którego faktycznie nie wykonano. `SOURCE_VERIFIED` jako zasada raportowania.
+
+## Diagnostyka
+
+### Błąd „CUDA unavailable” albo brak GPU
+
+Sprawdź `torch.cuda.is_available()`, `torch.cuda.device_count()` oraz środowisko procesu. Następnie zweryfikuj, czy używany interpreter zawiera właściwą instalację PyTorch i czy urządzenie jest widoczne dla procesu. Nie zakładaj, że systemowy Python i interpreter aplikacji są tym samym środowiskiem. Konkretna przyczyna wymaga danych z docelowego środowiska. `SOURCE_VERIFIED` dla API; `NEEDS_VERIFICATION` dla diagnozy przypadku.
+
+### Błąd urządzenia lub dtype
+
+Wypisz dla każdego wejścia, modelu i istotnego tensora:
+
+```python
+print(type(x), x.device, x.dtype, tuple(x.shape))
+```
+
+Porównaj urządzenia i typy przed operacją. Sprawdź również tensory pomocnicze tworzone wewnątrz funkcji, ponieważ domyślny `device` i `dtype` mogą różnić się od oczekiwanych. Reguły promocji dtype są opisane w dokumentacji atrybutów tensorów. [1] `SOURCE_VERIFIED`; diagnoza konkretnego operatora `NEEDS_VERIFICATION`.
+
+### OOM mimo wolnego cache lub różnicy względem `nvidia-smi`
+
+Porównaj `memory_allocated()` z `memory_reserved()` oraz wartościami szczytowymi. Sprawdź, czy obiekty z poprzedniej iteracji są nadal referencjonowane. `empty_cache()` nie usunie pamięci żywych tensorów. Pamiętaj też, że profiler pamięci PyTorch nie widzi wszystkich przydziałów wykonanych bezpośrednio przez CUDA lub biblioteki zewnętrzne; dokumentacja wymienia między innymi przydziały spoza allocatora PyTorch oraz NCCL jako przypadki wymagające osobnej analizy. [2] [4] `SOURCE_VERIFIED` dla ograniczenia narzędzia; źródło konkretnego OOM `NEEDS_VERIFICATION`.
+
+### Snapshot alokatora
+
+Dla trudnego problemu pamięci można, w krótkim kontrolowanym przebiegu, włączyć historię i zapisać snapshot:
+
+```python
+import torch
+
+torch.cuda.memory._record_memory_history()
+# kod reprodukujący problem
+# run_your_code()
+torch.cuda.memory._dump_snapshot("my_snapshot.pickle")
+```
+
+Snapshot można obejrzeć w wizualizatorze `https://pytorch.org/memory_viz`. Dokumentacja wskazuje, że profiler widzi pamięć CUDA zarządzaną przez allocator PyTorch, a nie wszystkie przydziały zewnętrzne. Rejestrowanie historii może zwiększać narzut pamięci; dla długich procesów należy dobrać limit historii. [4] `SOURCE_VERIFIED`.
+
+Nazwy z podkreśleniem, takie jak `_record_memory_history()` i `_dump_snapshot()`, należy traktować jako API wrażliwe na wersję. Przed użyciem sprawdź ich dostępność w zainstalowanej wersji PyTorch. `NEEDS_VERIFICATION`.
+
+## Ograniczenia i ryzyka
+
+- Ten wpis nie potwierdza, że CUDA jest dostępna w konkretnym komputerze, kontenerze ani interpreterze. `NEEDS_VERIFICATION`.
+- Zgodność operatora z danym `dtype`, GPU i backendem może zależeć od wersji i konfiguracji. `NEEDS_VERIFICATION`.
+- `nvidia-smi` pokazuje widok sterownika i procesu, a funkcje pamięci PyTorch pokazują widok określonych części allocatora; wartości nie muszą być równe. [2] [4] `SOURCE_VERIFIED`.
+- Snapshot nie jest pełnym obrazem wszystkich przydziałów GPU. Przydziały spoza allocatora PyTorch mogą wymagać narzędzi dostawcy GPU lub biblioteki, a wynik takiej analizy należy udokumentować osobno. [4] `SOURCE_VERIFIED`.
+- `CUDA_LAUNCH_BLOCKING=1` zmienia synchronizację i może zmienić wydajność; używaj go do diagnozy, nie jako dowodu, że kod produkcyjny powinien działać synchronicznie. [2] `SOURCE_VERIFIED`.
+- Nie ma tu deklaracji `LOCALLY_TESTED`; wszystkie przykłady wymagają uruchomienia w środowisku docelowym. `SOURCE_VERIFIED` jako status raportu.
+- Nie należy dodawać konkretnej wersji PyTorch, CUDA, sterownika, wyniku benchmarku ani nazwy istniejącego skryptu bez osobnej weryfikacji. `SOURCE_VERIFIED` jako zasada dokumentowania.
+
+## Statusy i konwencja aktualizacji
+
+- `SOURCE_VERIFIED` — twierdzenie ma oparcie w przywołanym źródle oficjalnym.
+- `REPORTED` — informacja pochodzi z raportu lub obserwacji, ale nie została zweryfikowana w tym opracowaniu.
+- `NEEDS_VERIFICATION` — trzeba sprawdzić wersję, sprzęt, backend, kod lub środowisko.
+- `PLANNED` — procedura, test albo usprawnienie do wykonania; nie jest istniejącą implementacją.
+- `LOCALLY_TESTED` — wolno użyć wyłącznie po rzeczywistym wykonaniu testu w konkretnym środowisku wraz z zapisanym wynikiem. Ten dokument nie używa tego statusu do deklarowania wykonania.
+
+## Źródła
+
+Twierdzenia dotyczące API i semantyki należy sprawdzać ponownie przy zmianie wersji PyTorch. Oficjalnym źródłem przewodnim jest dokumentacja PyTorch: [1]–[4].
+
+[1]: https://pytorch.org/docs/stable/tensor_attributes.html "PyTorch Tensor Attributes: dtype i device"
+[2]: https://pytorch.org/docs/stable/notes/cuda.html "PyTorch CUDA semantics: asynchroniczność i zarządzanie pamięcią"
+[3]: https://pytorch.org/docs/stable/cuda.html "PyTorch torch.cuda API"
+[4]: https://pytorch.org/docs/stable/torch_cuda_memory.html "PyTorch Understanding CUDA Memory Usage"

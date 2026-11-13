@@ -1,0 +1,148 @@
+---
+title: Hugging Face Diffusers — architektura, pipeline’y, konfiguracja i diagnostyka
+status: SOURCE_VERIFIED
+---
+
+# Hugging Face Diffusers: architektura, pipeline’y, konfiguracja i diagnostyka
+
+> Status dokumentu: **SOURCE_VERIFIED** dla twierdzeń opisanych odwołaniami do oficjalnej dokumentacji Hugging Face. Procedury oznaczone jako **PLANNED** lub **NEEDS_VERIFICATION** nie były wykonywane w tym środowisku. Brak statusu **LOCALLY_TESTED**.
+
+## Cel i zakres
+
+Ten wpis jest wspólną wiedzą techniczną dla agenta AI korzystającego z biblioteki Hugging Face Diffusers. Obejmuje podstawowy model architektury, ładowanie i uruchamianie pipeline’ów, konfigurację typu danych i urządzeń, schedulery, ograniczanie zużycia pamięci oraz metodyczną diagnostykę. Nie jest dokumentacją konkretnego projektu, ComfyUI, konkretnego modelu ani lokalnej instalacji Windows.
+
+Diffusers udostępnia gotowe modele dyfuzyjne oraz elementy do budowania własnych przepływów dla obrazu, wideo i audio. Dokumentacja rozróżnia dwie główne ścieżki: `DiffusionPipeline` do szybkiego użycia gotowego checkpointu oraz Modular Diffusers do komponowania własnych przepływów z bloków. [1]
+
+## Architektura i zasady
+
+### Pipeline, modele i scheduler
+
+`DiffusionPipeline` grupuje komponenty potrzebne do inferencji. Zależnie od rodziny modelu mogą to być między innymi enkoder tekstu, UNet lub transformer dyfuzyjny (DiT), VAE oraz scheduler. Klasa bazowa odczytuje metadane repozytorium, w tym `model_index.json`, i zwraca właściwą klasę pipeline’u. Klasy wyspecjalizowane zwykle odpowiadają zadaniu, na przykład text-to-image, image-to-image albo inpainting. [2]
+
+Model przewiduje przebieg odszumiania, a scheduler określa kolejne kroki aktualizacji próbki i harmonogram poziomów szumu. Scheduler jest konfigurowany osobno; jego konfigurację można odczytać z `pipeline.scheduler`, a zamianę należy wykonywać zgodnie z kompatybilnością danego modelu i pipeline’u. Nie zakładaj, że każdy scheduler lub argument harmonogramu działa z każdym pipeline’em. [3]
+
+Pipeline jest wygodną warstwą wykonawczą, ale komponenty można rozdzielić i składać samodzielnie. Przy zmianie komponentu zachowaj zgodność architektury, wymiarów, dtype, urządzenia i oczekiwanego formatu konfiguracji. To jest reguła diagnostyczna; jej potwierdzenie dla konkretnej pary modeli wymaga testu (**NEEDS_VERIFICATION**).
+
+### Modular Diffusers
+
+Modular Diffusers rozdziela workflow na komponowalne bloki. Blok opisuje wejścia, wyjścia i zależności komponentów, ale sam nie przechowuje wag i nie jest uruchamialnym pipeline’em. `ModularPipeline` jest częścią wykonawczą utworzoną z użyciem repozytorium i może łączyć bloki w różne workflow. [4]
+
+Dla zwykłej inferencji gotowego modelu preferuj standardowy pipeline. Modular Diffusers wybieraj wtedy, gdy agent ma jawny wymóg wymiany etapów, wielokrotnego użycia bloków lub budowy własnego workflow. Dostępność i API konkretnego bloku sprawdzaj w wersji dokumentacji odpowiadającej środowisku (**NEEDS_VERIFICATION**).
+
+## Wymagania i przygotowanie
+
+Oficjalna strona instalacji podaje Python 3.10+ oraz środowisko testowane z PyTorch 2.6+. Wymagania zależne od systemu, backendu i modelu muszą być sprawdzone w aktualnej dokumentacji oraz w faktycznym interpreterze; nie wpisuj wersji do projektu bez potwierdzenia. [5]
+
+Zalecany, izolowany etap przygotowania (**PLANNED**, nieuruchomiony tutaj):
+
+```bash
+uv venv .venv
+a source .venv/bin/activate
+uv pip install 'diffusers[torch]' transformers
+```
+
+Składnia aktywacji powyżej dotyczy powłoki POSIX. Dla Windows przygotuj osobną komendę dopiero po sprawdzeniu używanego interpretera. Nie zakładaj, że systemowy Python jest tym samym Pythonem co interpreter ComfyUI.
+
+Przed użyciem zanotuj:
+
+- wersje Pythona, PyTorch, Diffusers, Transformers i Accelerate;
+- dostępny backend (`cuda`, `mps`, `xpu` albo `cpu`) i jego pamięć;
+- identyfikator repozytorium modelu oraz wymagane uprawnienia;
+- dostępny cache i wolne miejsce na wagi;
+- oczekiwany typ wyjścia oraz ograniczenia licencyjne i bezpieczeństwa modelu.
+
+Repozytoria Hub mogą wymagać uwierzytelnienia. Tokenów, haseł i prywatnych konfiguracji nie zapisuj w tym repozytorium.
+
+## Procedura użycia
+
+1. **Zidentyfikuj zadanie i model.** Wybierz pipeline odpowiadający zadaniu, a nie tylko nazwę modelu. Sprawdź kartę modelu, konfigurację i wymagane komponenty (**NEEDS_VERIFICATION** dla każdego nowego checkpointu).
+2. **Wybierz urządzenie i dtype.** Zacznij od bezpiecznej konfiguracji dla danego backendu. `dtype` może być pojedynczym typem albo mapą komponentów z kluczem `default`; brak dopasowania i brak wartości domyślnej prowadzi według dokumentacji do pełnej precyzji `torch.float32`. [2]
+3. **Załaduj pipeline.** Oficjalny wzorzec to `from_pretrained(repo_id, ...)`. Nie kopiuj parametrów z innego pipeline’u bez sprawdzenia jego strony API.
+4. **Uruchom minimalny przypadek.** Użyj krótkiego promptu, małej rozdzielczości obsługiwanej przez model i kontrolowanej liczby kroków. Zachowaj seed, prompt, parametry i wersje, aby wynik był odtwarzalny w zakresie zapewnianym przez backend.
+5. **Dopiero potem optymalizuj.** Zmieniaj jedną rzecz naraz: dtype, device placement, scheduler, offloading albo batch. Zapisuj wpływ na czas, pamięć i jakość.
+
+Przykład schematyczny, wymagający potwierdzenia identyfikatora modelu i backendu (**PLANNED**):
+
+```python
+import torch
+from diffusers import DiffusionPipeline
+
+repo_id = "<repo_id_do_weryfikacji>"
+device = "cuda"  # albo mps, xpu lub cpu — sprawdź dostępność
+pipe = DiffusionPipeline.from_pretrained(
+    repo_id,
+    dtype=torch.float16,  # dobierz do modelu i backendu
+)
+pipe = pipe.to(device)
+result = pipe(
+    prompt="<prompt_do_uzupełnienia>",
+    num_inference_steps=<liczba_do_ustalenia>,
+)
+```
+
+To jest szablon procedury, nie deklaracja działającego testu. Nazwa repozytorium, dtype, zakres parametrów i oczekiwane pole wyniku muszą zostać sprawdzone dla wybranego pipeline’u.
+
+### Konfiguracja urządzeń i pamięci
+
+`device_map` może umieszczać pipeline na wskazanym akceleratorze, CPU albo rozdzielać komponenty przy użyciu `balanced`; `max_memory` pozwala określić limity dla urządzeń. Bieżący układ można obejrzeć przez `hf_device_map`. Po użyciu mapowania wywołanie `reset_device_map()` jest wymagane przed metodami, które zmieniają rozmieszczenie, takimi jak `.to()` lub offloading. [2]
+
+`enable_model_cpu_offload()` przenosi całe modele między CPU i GPU i zwykle oszczędza mniej pamięci niż offloading sekwencyjny, ale ogranicza koszt transferów. `enable_sequential_cpu_offload()` przenosi mniejsze podmoduły i może oszczędzić więcej pamięci, lecz jest bardzo wolny; pipeline’u nie należy wcześniej przenosić na CUDA, bo oszczędność może być minimalna. Obie operacje są stanowe i instalują hooki. [6]
+
+VAE slicing pomaga szczególnie przy batchach wielu obrazów. VAE tiling dzieli obraz na nakładające się kafelki i zmniejsza szczytowe zużycie pamięci, ale może wprowadzić różnice tonalne między kafelkami. Obsługę tych metod sprawdzaj dla konkretnego VAE. [6]
+
+Cache można kontrolować przez `HF_HOME`, `HF_HUB_CACHE` albo `cache_dir`. `HF_HUB_OFFLINE=1` ogranicza połączenia z Hubem, ale działa tylko wtedy, gdy wszystkie wymagane pliki są już dostępne lokalnie. [5]
+
+### Scheduler i adaptery
+
+Przed wymianą schedulera zapisz konfigurację bazową i używaj konstrukcji przewidzianej w dokumentacji, na przykład `from_config` na konfiguracji istniejącego schedulera. Sprawdź, czy wybrany scheduler obsługuje wymagane argumenty, takie jak `timesteps`, `sigmas` lub konkretne ustawienia spacingu. Rekomendacje schedulera są zależne od modelu i celu; nie traktuj ich jako gwarancji jakości. [3]
+
+Adaptery, w tym LoRA, oraz quantization mają własne wymagania i dodatkowe zależności. Dodawaj je dopiero po działającym teście bazowym i zapisuj, które komponenty zostały zmodyfikowane (**NEEDS_VERIFICATION** dla konkretnej wersji i modelu).
+
+## Testowanie
+
+Status testów tego wpisu: **PLANNED**. Nie wykonano testu importu, pobrania modelu, inferencji, pomiaru VRAM ani testu na lokalnym Windows. Nie deklaruj **LOCALLY_TESTED**.
+
+Minimalny plan walidacji dla agenta:
+
+1. **Środowisko:** zapisz `python --version`, wersje bibliotek, backend i urządzenie.
+2. **Import:** sprawdź import `diffusers` i wybranej klasy pipeline’u.
+3. **Ładowanie:** użyj jawnego `repo_id`, potwierdź cache, dtype i rozmieszczenie komponentów.
+4. **Inferencja:** uruchom minimalny przypadek z kontrolowanym promptem i parametrami.
+5. **Wynik:** potwierdź typ, rozmiar i zapis rezultatu; nie oceniaj jakości bez kryterium porównawczego.
+6. **Regresja:** powtórz test po każdej zmianie dtype, schedulera, offloadingu lub wersji zależności.
+
+Wynik testu zapisuj jako: data, środowisko, model, parametry, oczekiwanie, wynik, log błędu i status. Brak wyniku oznacz **NEEDS_VERIFICATION**, a nie **SOURCE_VERIFIED**.
+
+## Diagnostyka
+
+- **Błąd pobierania lub brak pliku:** sprawdź `repo_id`, dostęp do Hub, uprawnienia, cache, miejsce na dysku i zgodność struktury repozytorium z klasą pipeline’u. Nie maskuj błędu przez przypadkową zmianę ścieżki.
+- **Błąd importu:** sprawdź interpreter, wersje pakietów i opcjonalne zależności. Porównaj je z wymaganiami bieżącej dokumentacji (**NEEDS_VERIFICATION**).
+- **CUDA/MPS/XPU albo dtype mismatch:** wypisz urządzenia i dtype każdego kluczowego komponentu. Nie mieszaj urządzeń bez świadomego `device_map`; potwierdź, że dtype jest obsługiwany przez backend i model.
+- **Out of memory:** zmniejsz batch i rozdzielczość, sprawdź `max_memory`, rozważ właściwy dtype, VAE slicing/tiling albo offloading. Mierz szczyt pamięci zamiast wnioskować z rozmiaru pliku wag. [6]
+- **Niezgodny scheduler lub słaby wynik:** wróć do schedulera z repozytorium, sprawdź jego konfigurację i dopiero porównuj alternatywy. `timesteps`, `sigmas` i spacing nie są uniwersalne. [3]
+- **Niedeterministyczny lub różny wynik:** zapisz seed, wersje, backend, dtype, scheduler i parametry pipeline’u. Nie traktuj identycznych obrazów jako gwarancji między urządzeniami.
+- **Problem po `from_pipe()`:** współdzielone pipeline’y współdzielą modele i stan; modyfikacja jednego może wpływać na inne. Metody zależne od kolejności wykonania, w tym offloading, mogą wymagać ponownej konfiguracji. [2]
+- **Wycieki sekretów lub niepożądane treści:** sprawdź źródło modelu, licencję, politykę bezpieczeństwa i dostępne mechanizmy safety. Nie wyłączaj zabezpieczeń jako ogólnej metody diagnostycznej; każdą taką decyzję oznacz **NEEDS_VERIFICATION** i uzyskaj zgodę właściciela systemu.
+
+## Ograniczenia
+
+Dokument nie ustala jednej wersji Diffusers ani jednego backendu. API, nazwy pipeline’ów, wymagania pamięci i wspierane argumenty zależą od wersji biblioteki, modelu i urządzenia. Oficjalne przykłady są wzorcami, a nie dowodem, że dany model zadziała w lokalnym środowisku.
+
+Nie opisano tu treningu, pełnej quantization, serwowania wieloużytkownikowego, konkretnych modeli wideo/audio ani integracji z ComfyUI. Te obszary wymagają osobnych, niepowielających wpisów. Koszt, licencja modelu, bezpieczeństwo danych i zgodność z polityką użytkownika zawsze mają pierwszeństwo przed optymalizacją.
+
+## Statusy używane w bazie
+
+- **SOURCE_VERIFIED** — informacja potwierdzona w przywołanym źródle oficjalnym.
+- **REPORTED** — informacja otrzymana jako zgłoszenie lub obserwacja, bez potwierdzenia w tym wpisie.
+- **NEEDS_VERIFICATION** — wymaga sprawdzenia w konkretnym środowisku, wersji lub modelu.
+- **PLANNED** — plan lub szablon do wykonania; nie jest wynikiem testu.
+- **LOCALLY_TESTED** — dozwolone wyłącznie po rzeczywistym wykonaniu testu i zapisaniu wyniku; ten wpis tego statusu nie deklaruje.
+
+## Źródła
+
+[1]: https://huggingface.co/docs/diffusers/index "Diffusers — oficjalny indeks dokumentacji"
+[2]: https://huggingface.co/docs/diffusers/using-diffusers/loading "DiffusionPipeline — ładowanie i konfiguracja"
+[3]: https://huggingface.co/docs/diffusers/using-diffusers/schedulers "Schedulers — oficjalny przewodnik"
+[4]: https://huggingface.co/docs/diffusers/modular_diffusers/overview "Modular Diffusers — oficjalny przegląd"
+[5]: https://huggingface.co/docs/diffusers/installation "Installation — oficjalna instrukcja"
+[6]: https://huggingface.co/docs/diffusers/optimization/memory "Memory optimization — oficjalny przewodnik"

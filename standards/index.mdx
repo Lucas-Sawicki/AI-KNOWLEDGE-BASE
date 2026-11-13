@@ -1,0 +1,204 @@
+---
+title: Indeks standardów technicznych
+status: SOURCE_VERIFIED
+---
+
+# Indeks standardów technicznych
+
+> **Status indeksu:** `SOURCE_VERIFIED` dla zakresu repozytorium, zasad dokumentowania i istnienia ścieżek potwierdzonych w `AGENTS.md`, `README.md` oraz inwentaryzacji repozytorium. `REPORTED` oznacza opis z dokumentacji bez potwierdzenia wykonaniem. `NEEDS_VERIFICATION` oznacza konieczność sprawdzenia treści, kodu, wersji lub środowiska. `PLANNED` oznacza propozycję albo plan. `LOCALLY_TESTED` nie jest deklarowany.
+
+## 1. Cel
+
+Ten dokument jest punktem wejścia do norm i kryteriów technicznych w `AI-KNOWLEDGE-BASE`. Ma pomóc agentowi AI:
+
+- znaleźć właściwy standard przed planowaniem lub oceną zmiany;
+- odróżnić normę i kryterium akceptacji od implementacji, konfiguracji i wyniku testu;
+- stosować wspólne zasady bez kopiowania szczegółów projektowych;
+- jawnie rozdzielać informacje potwierdzone, zgłoszone, wymagające sprawdzenia i planowane;
+- przygotować weryfikowalny plan użycia, testowania i diagnostyki.
+
+Standardy opisują oczekiwany sposób postępowania. Sama obecność dokumentu standardu nie dowodzi, że projekt, skrypt, API, instalacja lub test istnieje albo działa.
+
+## 2. Zakres i granice
+
+Indeks obejmuje standardy przechowywane w `standards/`, ich role, status mapy oraz wspólne kryteria użycia. Obejmuje także relację między warstwami repozytorium:
+
+- `knowledge/` — wspólna wiedza technologiczna;
+- `projects/` — szczegóły konkretnych projektów;
+- `standards/` — normy, wymagania i kryteria oceny;
+- `templates/` — struktury dokumentów z polami do uzupełnienia.
+
+Nie należy przenosić do tego indeksu parametrów pojedynczego modelu, workflow, instalacji, wersji zależności, wyników testów ani niezweryfikowanych kontraktów API. Takie informacje pozostają w odpowiednim dokumencie i otrzymują właściwy status. **Status podziału warstw:** `SOURCE_VERIFIED` na podstawie `AGENTS.md` i `README.md`.
+
+## 3. Architektura informacji i zasady
+
+### 3.1. Kolejność źródeł
+
+Przed użyciem standardu agent powinien:
+
+1. przeczytać `AGENTS.md` i `README.md`;
+2. ustalić projekt oraz zakres zadania;
+3. przeczytać właściwą dokumentację `projects/` i powiązane wpisy `knowledge/`;
+4. sprawdzić odpowiednie standardy;
+5. porównać dokumentację z rzeczywistym kodem i środowiskiem, jeśli są dostępne;
+6. wskazać rozbieżności zamiast uzupełniać je domysłem.
+
+Dla bibliotek zewnętrznych `AGENTS.md` wymaga najpierw identyfikacji biblioteki przez `resolve-library-id`, a następnie konkretnego zapytania przez `query-docs`; szczegóły używanego API, wersji i parametrów pozostają `NEEDS_VERIFICATION`, dopóki nie zostaną sprawdzone w odpowiednim źródle. **Status:** `SOURCE_VERIFIED` dla procedury repozytorium; konkretne wykonanie procedury w tym zadaniu: `NEEDS_VERIFICATION`.
+
+### 3.2. Zasada warstwowania
+
+| Warstwa | Rola | Kryterium użycia | Status mapy |
+|---|---|---|---|
+| `knowledge/` | Wiedza wspólna dla wielu projektów | Zapisuj reguły i informacje przekrojowe bez szczegółów jednego projektu | `SOURCE_VERIFIED` |
+| `projects/` | Dokumentacja projektu | Zapisuj architekturę, konfigurację, zależności i procedury konkretnego projektu | `SOURCE_VERIFIED` |
+| `standards/` | Normy i kryteria | Oceniaj zgodność; nie udawaj implementacji ani testu | `SOURCE_VERIFIED` |
+| `templates/` | Szablony | Uzupełniaj jawne pola; puste pola nie są dowodem stanu | `SOURCE_VERIFIED` |
+
+## 4. Jawne statusy informacji
+
+| Status | Znaczenie | Dozwolone użycie |
+|---|---|---|
+| `SOURCE_VERIFIED` | Twierdzenie potwierdzone w przywołanym źródle oficjalnym, repozytoryjnym lub inwentarzu plików | Podaj źródło i nie rozszerzaj znaczenia ponad jego treść |
+| `REPORTED` | Informacja opisana lub zgłoszona w dokumentacji, bez potwierdzenia wykonaniem w bieżącym kontekście | Opisuj jako relację, nie jako dowód działania |
+| `NEEDS_VERIFICATION` | Informacja zależna od kodu, wersji, konfiguracji, sprzętu, środowiska albo aktualnego testu | Pozostaw do czasu zebrania dowodu |
+| `PLANNED` | Plan, propozycja, kryterium przyszłego testu albo nieuzupełniony szablon | Nie przedstawiaj jako istniejącej funkcji lub wyniku |
+| `LOCALLY_TESTED` | Rzeczywisty, reprodukowalny test lokalny z zapisanym środowiskiem, poleceniem i wynikiem | Użyj wyłącznie po wykonaniu takiego testu |
+
+W tym indeksie nie występuje deklaracja `LOCALLY_TESTED`. Status źródła i status testu są niezależne: `SOURCE_VERIFIED` nie oznacza uruchomienia lokalnego.
+
+## 5. Mapa istniejących standardów
+
+Mapa przedstawia ścieżki obecne w repozytorium podczas przygotowania indeksu. Istnienie ścieżki jest `SOURCE_VERIFIED`; aktualność, kompletność i działanie treści należy oceniać osobno.
+
+| Ścieżka | Przeznaczenie | Status mapy i treści |
+|---|---|---|
+| [`standards/index.mdx`](./index.mdx) | Indeks standardów, mapa, reguły użycia i kryteria dokumentowania | `SOURCE_VERIFIED` dla niniejszej treści; brak `LOCALLY_TESTED` |
+| [`standards/coding-rules.mdx`](./coding-rules.mdx) | Wspólne zasady kodowania, kontraktów, custom nodes, procesu i testów | `SOURCE_VERIFIED` dla odczytanej treści repozytoryjnej; szczegóły zależne od kodu i wersji: `NEEDS_VERIFICATION` |
+| [`standards/gpu-memory.mdx`](./gpu-memory.mdx) | Normy zarządzania VRAM/RAM, OOM, `dtype`, offload i pomiarami | `SOURCE_VERIFIED` dla twierdzeń opatrzonych źródłami w dokumencie; zastosowanie w konkretnym środowisku: `NEEDS_VERIFICATION` |
+| [`standards/security.mdx`](./security.mdx) | Przeznaczony dokument wymagań bezpieczeństwa | Plik obecny; treść nie została potwierdzona w tym indeksie: `NEEDS_VERIFICATION` |
+| [`standards/testing.mdx`](./testing.mdx) | Przeznaczony dokument kryteriów testowania | Plik obecny; treść nie została potwierdzona w tym indeksie: `NEEDS_VERIFICATION` |
+
+Mapa nie obejmuje deklaracji, że standardy `security.mdx` lub `testing.mdx` zawierają działające procedury. Puste lub nieuzupełnione dokumenty należy traktować jako `NEEDS_VERIFICATION`, nie jako brak wymagań ani gotową implementację.
+
+## 6. Wymagania dla użycia standardu
+
+Przed zaakceptowaniem zmiany agent powinien mieć — o ile dotyczy — jawnie opisane:
+
+- cel, zakres i elementy poza zakresem;
+- właściwy projekt oraz warstwę dokumentacji;
+- architekturę, przepływ danych lub zasady, których zmiana dotyczy;
+- zależności, interpreter, wersje i środowisko, wyłącznie gdy zostały potwierdzone;
+- wejścia, wyjścia, typy danych, błędne i graniczne przypadki;
+- ograniczenia VRAM, RAM, CPU, czasu, kosztu i dostępu;
+- kryteria akceptacji oraz sposób zapisania wyniku;
+- źródła i status każdego istotnego twierdzenia;
+- znane ograniczenia i kolejne kroki.
+
+Nie wolno zapisywać sekretów, kluczy API, tokenów, haseł ani prywatnych konfiguracji. Nie wolno zmieniać celu użytkownika, publikować, scalać, usuwać plików ani używać zewnętrznych zasobów bez wymaganej zgody. **Status tych wymagań:** `SOURCE_VERIFIED` na podstawie `AGENTS.md` i `README.md`.
+
+## 7. Procedura użycia przez agenta AI
+
+1. **Sklasyfikuj zadanie.** Ustal, czy dotyczy normy (`standards/`), wiedzy wspólnej (`knowledge/`), projektu (`projects/`) czy szablonu (`templates/`).
+2. **Zbierz źródła.** Odczytaj zasady repozytorium, właściwy projekt, kod i oficjalną dokumentację zależności, jeśli jest potrzebna.
+3. **Wybierz standard.** Otwórz jeden lub więcej wpisów z mapy i zanotuj ich status oraz granice.
+4. **Zdefiniuj kryteria.** Przełóż normę na obserwowalne warunki dla konkretnej zmiany; nie dopisuj nieznanych wartości.
+5. **Zaplanuj najmniejszą zmianę.** Nie nadpisuj cudzych zmian i nie rozszerzaj zakresu bez zgody.
+6. **Wykonaj tylko dostępne czynności.** Komendy, ścieżki i wersje, których nie można sprawdzić, oznacz `NEEDS_VERIFICATION` albo `PLANNED`.
+7. **Testuj i zapisz dowód.** Podaj środowisko, polecenie lub procedurę, oczekiwanie i rzeczywisty wynik. Bez wyniku nie deklaruj sukcesu.
+8. **Zdiagnozuj rozbieżności.** Oddziel błąd kodu, konfiguracji, zależności, zasobów i środowiska.
+9. **Udokumentuj wynik.** Szczegóły projektu zapisz w `projects/`, wiedzę wspólną w `knowledge/`, a normę lub kryterium w `standards/`; unikaj duplikowania.
+10. **Przygotuj raport.** Wskaż zmienione pliki, zależności, testy, problemy, ograniczenia i instrukcję uruchomienia. Publikacja wymaga zatwierdzenia użytkownika.
+
+## 8. Testowanie i kryteria akceptacji
+
+Testowanie jest wymaganiem procesu, nie deklaracją wykonanego testu. Dla zmiany technicznej plan testu powinien — stosownie do zakresu — obejmować:
+
+- poprawność składni i formatu dokumentu lub kodu;
+- importy, zależności, rejestrację oraz kontrakty wejść/wyjść, jeśli występują;
+- przypadek poprawny, pusty, błędny i graniczny;
+- integrację z właściwym projektem lub narzędziem;
+- wpływ na VRAM, RAM, czas i jakość, jeśli ma znaczenie;
+- regresję względem wcześniejszego zachowania;
+- zapis komendy, środowiska, daty, oczekiwania, wyniku i logu błędu.
+
+Dla tego indeksu nie wykonano testu lokalnego środowiska, bibliotek, ComfyUI, GPU, Windows ani integracji. Status testów: `PLANNED`; zależne sprawdzenia pozostają `NEEDS_VERIFICATION`. Nie deklaruje się `LOCALLY_TESTED`.
+
+Minimalne kryterium akceptacji przyszłej aktualizacji indeksu (`PLANNED`): mapa odpowiada rzeczywistym ścieżkom w repozytorium, każdy wpis ma opis i status, dokument nie przypisuje standardom implementacji, a źródła i ograniczenia są jawne.
+
+## 9. Diagnostyka
+
+W przypadku sprzeczności, brakującego wpisu lub błędu:
+
+1. sprawdź, czy odczytano właściwy plik i właściwą warstwę repozytorium;
+2. porównaj mapę z rzeczywistą zawartością katalogu;
+3. sprawdź status twierdzenia oraz źródło, zamiast traktować `REPORTED` jak dowód;
+4. potwierdź interpreter, wersje, ścieżki, zależności i konfigurację docelową;
+5. odtwórz problem na najmniejszym bezpiecznym przypadku;
+6. zachowaj komunikat błędu, komendę, środowisko i rezultat;
+7. jeśli nie da się potwierdzić przyczyny, pozostaw `NEEDS_VERIFICATION`;
+8. propozycję naprawy oznacz `PLANNED` do czasu wykonania testu.
+
+Dla lokalnego Windows agent nie powinien twierdzić, że odczytał lub zmodyfikował ścieżkę bez autoryzowanego dostępu. Należy podać użytkownikowi dokładną komendę lub skrypt i poprosić o wynik. **Status:** `SOURCE_VERIFIED` dla zasady; wykonanie konkretnej diagnostyki: `NEEDS_VERIFICATION`.
+
+## 10. Ograniczenia
+
+- Indeks jest mapą i zestawem kryteriów, a nie rejestrem działających usług, skryptów ani implementacji.
+- Stan mapy może się zmienić po dodaniu, usunięciu lub edycji plików.
+- Opis standardu nie potwierdza zgodności konkretnego projektu bez sprawdzenia kodu i środowiska.
+- `REPORTED` nie jest niezależnym dowodem; `SOURCE_VERIFIED` nie oznacza testu lokalnego.
+- Nie ustalono tu wersji bibliotek, sterowników, sprzętu, systemu ani parametrów bez źródła dla konkretnego przypadku.
+- Zewnętrzne backendy, koszty, limity, dostęp i publikacja wymagają osobnej decyzji oraz weryfikacji.
+- Dokumenty `security.mdx` i `testing.mdx` mają potwierdzone istnienie ścieżki, lecz ich treść pozostaje `NEEDS_VERIFICATION` w zakresie tej mapy.
+
+## 11. Szablon karty standardu do uzupełnienia
+
+Poniższy szablon jest użytecznym wzorcem dla nowego lub aktualizowanego standardu. Jest `PLANNED`; pola w nawiasach należy uzupełnić źródłem albo wynikiem, nie domysłem.
+
+```md
+# [Nazwa standardu]
+
+> Typ: standard techniczny, nie implementacja.
+> Status dokumentu: SOURCE_VERIFIED / REPORTED / NEEDS_VERIFICATION / PLANNED
+> LOCALLY_TESTED: tylko po rzeczywistym teście z dowodem
+
+## Cel
+[Co standard ujednolica i dla jakiego agenta/projektu]
+
+## Zakres i poza zakresem
+[Objęte elementy; szczegóły pozostawione w projects/knowledge]
+
+## Architektura lub zasady
+[Warstwy, odpowiedzialności, normy i kryteria; bez wymyślonego API]
+
+## Wymagania
+[Środowisko, zależności i wersje tylko z potwierdzonego źródła]
+
+## Procedura użycia
+[Warunkowe kroki, wejścia, wyjścia i decyzje]
+
+## Testowanie i kryteria akceptacji
+[Komenda/procedura, środowisko, oczekiwanie, wynik i status]
+
+## Diagnostyka
+[Objaw, sprawdzenie, możliwe rozróżnienia i następny krok]
+
+## Ograniczenia
+[Granice, niepewności, koszty i zależności od środowiska]
+
+## Statusy
+[Status każdego istotnego twierdzenia]
+
+## Źródła
+[AGENTS.md, README.md, oficjalne URL-e, kod lub inne źródła wraz ze statusem]
+```
+
+## 12. Źródła
+
+1. [`AGENTS.md`](../AGENTS.md) — `SOURCE_VERIFIED`: struktura repozytorium, zasady pracy agenta, procedura Context7, wymagania ComfyUI, bezpieczeństwo, testowanie, raportowanie i ograniczenia dostępu.
+2. [`README.md`](../README.md) — `SOURCE_VERIFIED`: cel bazy, architektura warstw, mapa projektów, model zarządzania zmianami, zasady dokumentowania i bezpieczeństwa.
+3. [`standards/coding-rules.mdx`](./coding-rules.mdx) — `SOURCE_VERIFIED` dla odczytanej treści i kryteriów tego wpisu; szczegóły zależne od konkretnego kodu i wersji: `NEEDS_VERIFICATION`.
+4. [`standards/gpu-memory.mdx`](./gpu-memory.mdx) — `SOURCE_VERIFIED` dla odczytanej treści i wskazanych tam oficjalnych źródeł; zastosowanie w konkretnym środowisku: `NEEDS_VERIFICATION`.
+5. [`standards/security.mdx`](./security.mdx) oraz [`standards/testing.mdx`](./testing.mdx) — `SOURCE_VERIFIED` wyłącznie dla istnienia ścieżek; treść: `NEEDS_VERIFICATION`.
+6. Oficjalna dokumentacja konkretnej biblioteki, narzędzia lub frameworka — użyć dopiero po wskazaniu dokładnego źródła i sprawdzeniu właściwej wersji; bez takiej weryfikacji status: `NEEDS_VERIFICATION`.
+
+Nie użyto lokalnych wyników testów jako źródła i nie zadeklarowano `LOCALLY_TESTED`.

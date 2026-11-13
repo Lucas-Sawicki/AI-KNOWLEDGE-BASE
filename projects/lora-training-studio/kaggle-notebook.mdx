@@ -1,0 +1,222 @@
+# LoRA Training Studio — Kaggle notebook
+
+## Cel
+
+Ten dokument opisuje ręcznie uruchamiany notebook Kaggle jako **opcjonalny backend** dla LoRA Training Studio. Notebook ma wspierać powtarzalny przebieg eksperymentu, ale nie zastępuje modelu bazowego, konfiguracji eksperymentu, logów ani walidacji artefaktu. Status opisu: `REPORTED` dla założeń repozytorium, `SOURCE_VERIFIED` dla zasad wynikających z dokumentacji oficjalnej, `PLANNED` dla procedur niezaimplementowanych w tym repozytorium oraz `NEEDS_VERIFICATION` dla ustawień zależnych od modelu, danych, wersji lub GPU. W tym dokumencie nie deklaruję `LOCALLY_TESTED`.
+
+Kaggle nie jest uruchamiane automatycznie przez ten dokument. Nie zakładam automatycznego przesłania danych, dostępności konkretnego akceleratora ani braku kosztów. Aktualne limity, dostępność zasobów, ustawienia Internetu, prywatność i ewentualne koszty należy sprawdzić przed każdym uruchomieniem w aktualnej dokumentacji Kaggle (`NEEDS_VERIFICATION`) [1].
+
+## Zakres i granice
+
+W zakresie są:
+
+- przygotowanie wejść do notebooka oraz kontrola licencji i prywatności danych;
+- jawna konfiguracja eksperymentu;
+- rozdzielenie przygotowania danych, konfiguracji treningu, checkpointów oraz eksportu;
+- ręczne uruchomienie treningu w sesji Kaggle, jeżeli użytkownik wyrazi zgodę;
+- zapis logów i artefaktów potrzebnych do późniejszej weryfikacji;
+- przeniesienie wybranego artefaktu do zgodnego środowiska inferencji, na przykład lokalnego ComfyUI.
+
+Poza zakresem są automatyczne tworzenie notebooka, automatyczne uruchamianie sesji, automatyczne pobieranie modeli lub danych, automatyczne publikowanie artefaktów, zarządzanie sekretami oraz gwarancja jakości wyniku. Są to elementy `PLANNED` albo `NEEDS_VERIFICATION`.
+
+## Architektura
+
+Notebook powinien być cienką warstwą uruchomieniową nad procesem LoRA:
+
+```text
+źródła danych + licencja
+    -> przygotowanie danych i manifest
+    -> konfiguracja modelu bazowego i treningu
+    -> ręcznie uruchomiony notebook Kaggle
+    -> logi + checkpointy
+    -> wybór i walidacja checkpointu
+    -> eksport adaptera + metadane
+    -> test w zgodnym pipeline'ie lub ComfyUI
+```
+
+### Oddzielne artefakty
+
+1. **Dane** — obrazy, teksty, captiony lub inne wejścia, manifest, kryteria kontroli jakości i informacja o licencji. Etap: `PLANNED` / `NEEDS_VERIFICATION`.
+2. **Konfiguracja treningu** — model bazowy, architektura, komponenty objęte LoRA, parametry, seed, wersje bibliotek, komenda oraz ścieżki wyjściowe. Etap: `PLANNED` / `NEEDS_VERIFICATION`.
+3. **Checkpointy** — pośrednie zapisy umożliwiające porównanie lub wznowienie, jeśli wybrany framework zapisuje wymagany stan. Etap: `PLANNED`.
+4. **Eksport** — finalny adapter przeznaczony do użycia wraz z manifestem, metadanymi i relacją do modelu bazowego. Etap: `PLANNED` / `NEEDS_VERIFICATION`.
+
+PEFT dokumentuje parametrycznie wydajne dostrajanie, konfigurację adapterów oraz zapis i wczytywanie adaptera w połączeniu z modelem bazowym [2]. Diffusers pokazuje użycie LoRA w określonych pipeline'ach, ale przykład nie dowodzi zgodności każdego modelu, skryptu ani workflow [3].
+
+## Wymagania
+
+### Dostęp i zgoda
+
+Użytkownik musi samodzielnie otworzyć lub utworzyć notebook Kaggle, włączyć potrzebne zasoby i uruchomić komórki. Ten plik nie potwierdza, że konto, notebook, dane wejściowe, Internet ani GPU są dostępne. Przeniesienie danych do usługi zewnętrznej wymaga osobnej decyzji użytkownika oraz sprawdzenia licencji, prywatności i aktualnych warunków usługi (`REPORTED` / `NEEDS_VERIFICATION`).
+
+### Środowisko treningowe
+
+Konkretne wersje Pythona, PyTorch, CUDA, PEFT, Diffusers, Transformers, Accelerate i narzędzia treningowego muszą zostać odczytane w sesji. Nie wpisuję tu wersji, których nie potwierdzono. Zgodność środowiska z wybranym modelem oraz skryptem ma status `NEEDS_VERIFICATION`.
+
+Notebook potrzebuje miejsca na dane, cache, logi, checkpointy i eksport. Limity pamięci, czasu sesji i dysku nie są tu ustalane jako stałe wartości. Sprawdź je w bieżącej dokumentacji Kaggle przed uruchomieniem (`NEEDS_VERIFICATION`) [1].
+
+### Lokalny GPU i ComfyUI
+
+Preferowanym zasobem projektu jest lokalny GPU (`REPORTED`). Wskazana przez repozytorium ścieżka ComfyUI to:
+
+```text
+E:\AI AGENTS\ComfyUI_windows_portable
+```
+
+Nie mam automatycznego dostępu do tej ścieżki i nie twierdzę, że istnieje, że została odczytana ani że została zmodyfikowana. Wskazany interpreter środowiska ComfyUI to:
+
+```text
+E:\AI AGENTS\ComfyUI_windows_portable\python_embeded\python.exe
+```
+
+Sprawdzenie tej ścieżki należy wykonać ręcznie na komputerze użytkownika. Integracja wyeksportowanego adaptera z konkretnym workflow ComfyUI jest `NEEDS_VERIFICATION`; dokumentacja ComfyUI opisuje węzeł LoRA Loader, lecz nie potwierdza zgodności konkretnego artefaktu z każdym workflow [4].
+
+## Konfiguracja
+
+Konfiguracja powinna być jawna, wersjonowana i pozbawiona sekretów. Minimalny manifest eksperymentu (`PLANNED`) powinien zawierać:
+
+```yaml
+experiment:
+  id: "<identyfikator eksperymentu>"
+  base_model: "<identyfikator lub ścieżka modelu bazowego>"
+  base_model_source: "<oficjalne źródło>"
+  architecture: "<wariant architektury>"
+  components: "<komponenty objęte LoRA>"
+data:
+  input_path: "<ścieżka lub identyfikator wejścia>"
+  manifest: "<ścieżka manifestu>"
+  license: "<licencja i zakres użycia>"
+training:
+  target_modules: "<lista z konfiguracji wybranego modelu>"
+  rank: "<wartość do weryfikacji>"
+  alpha: "<wartość do weryfikacji>"
+  learning_rate: "<wartość do weryfikacji>"
+  batch_size: "<wartość do weryfikacji>"
+  gradient_accumulation: "<wartość do weryfikacji>"
+  steps_or_epochs: "<wartość do weryfikacji>"
+  dtype: "<wartość do weryfikacji>"
+  seed: "<ustalona wartość albo jawny brak>"
+paths:
+  logs: "<katalog logów>"
+  checkpoints: "<katalog checkpointów>"
+  export: "<katalog eksportu>"
+status: "PLANNED"
+```
+
+`rank`, `alpha`, `target_modules`, zakres komponentów, rozdzielczość, batch size, dtype, learning rate, liczba kroków lub epok, scheduler oraz ustawienia oszczędzania pamięci zależą od modelu, danych, frameworka i GPU. Każda konkretna wartość bez potwierdzenia w dokumentacji wybranego stosu i w sesji ma status `NEEDS_VERIFICATION`. Nie kopiuj wartości demonstracyjnych z przykładu jako uniwersalnej konfiguracji.
+
+Nie zapisuj w notebooku ani manifeście tokenów, haseł, kluczy API ani prywatnych identyfikatorów. Jeżeli usługa wymaga sekretu, użyj mechanizmu sekretów usługi zgodnie z jej oficjalną dokumentacją i nie umieszczaj wartości w komórkach ani w logach (`PLANNED` / `NEEDS_VERIFICATION`).
+
+## Procedura użycia
+
+### 1. Przygotowanie danych
+
+Status: `PLANNED` / `NEEDS_VERIFICATION`.
+
+1. Ustal źródło, licencję, prywatność i dozwolone przeznaczenie danych.
+2. Przygotuj kopię roboczą. Sprawdź czytelność, kompletność i format plików.
+3. Usuń duplikaty oraz przykłady niezgodne z celem. Zapisz kryteria odrzucenia.
+4. Przygotuj captiony i metadane zgodne z wymaganiami wybranego modelu.
+5. Zbuduj manifest z nazwą pliku, rozmiarem, źródłem, captionem, opcjonalnym hashem i decyzją o włączeniu.
+6. Dopiero po kontroli jakości przygotuj dane jako wejście notebooka.
+
+Brak manifestu, licencji lub kryteriów kontroli jakości pozostawia etap jako `NEEDS_VERIFICATION`. Nie przesyłaj do Kaggle danych, których nie wolno przesyłać do usługi zewnętrznej.
+
+### 2. Konfiguracja treningu
+
+Status: `PLANNED` / `NEEDS_VERIFICATION`.
+
+1. Wybierz model bazowy i potwierdź w dokumentacji wybranego skryptu obsługę jego architektury.
+2. Ustal komponenty i `target_modules`; nie zakładaj, że konfiguracja jednego modelu pasuje do innego.
+3. Sprawdź dostępne zasoby sesji dopiero po jej uruchomieniu i dobierz parametry na podstawie pomiaru.
+4. Zapisz model bazowy, wersje bibliotek, konfigurację, seed oraz komendę lub komórki uruchomieniowe.
+5. Jeśli skrypt to obsługuje, wykonaj najpierw krótki przebieg diagnostyczny. Jego wynik musi być zapisany jako wynik, nie jako przewidywanie.
+6. Włącz logowanie oraz checkpointy zgodnie z możliwościami wybranego narzędzia.
+
+### 3. Ręczne uruchomienie notebooka Kaggle
+
+Status: `PLANNED` / `NEEDS_VERIFICATION`.
+
+1. Użytkownik wybiera notebook, wejścia i akcelerator w interfejsie Kaggle.
+2. Użytkownik potwierdza dostęp do danych, ustawienia prywatności, Internetu oraz aktualne limity.
+3. Komórka diagnostyczna powinna wypisać wersje środowiska, dostępność GPU i ścieżki robocze. Nie wpisuj wyniku z góry.
+4. Komórki przygotowania danych powinny sprawdzić manifest i zakończyć się błędem przy brakujących lub nieczytelnych wejściach.
+5. Komórki treningu powinny zapisywać logi oraz checkpointy do jawnie wskazanego katalogu.
+6. Po zakończeniu użytkownik zachowuje log sesji i artefakty. Notebook nie publikuje ich automatycznie.
+
+Jeżeli sesja zakończy się przerwaniem, zachowaj komunikat błędu, ostatni krok i listę zapisanych plików. Nie twierdź, że trening zakończył się poprawnie bez logu lub artefaktu możliwego do sprawdzenia.
+
+### 4. Checkpointy
+
+Status: `PLANNED`.
+
+Checkpoint jest artefaktem pośrednim. Dla każdego zapisu zachowaj krok lub epokę, konfigurację, seed, model bazowy, identyfikator danych, log i informację o poprawnym zakończeniu zapisu. Przed usunięciem sprawdź kompletność pliku oraz możliwość wznowienia w wybranym frameworku. Sam zapis adaptera może nie zawierać pełnego stanu optymalizatora wymaganego do wznowienia; trzeba to potwierdzić w dokumentacji konkretnego narzędzia (`NEEDS_VERIFICATION`) [2].
+
+### 5. Eksport
+
+Status: `PLANNED` / `NEEDS_VERIFICATION`.
+
+1. Wybierz checkpoint według wcześniej zapisanych kryteriów.
+2. Odczytaj konfigurację, model bazowy, komponenty i krok checkpointu.
+3. Zapisz adapter w formacie obsługiwanym przez docelowe narzędzie.
+4. Zapisz manifest eksportu i metadane obok artefaktu.
+5. Sprawdź istnienie, niezerowy rozmiar, odczyt pliku, klucze tensorów i relację adapter–model bazowy.
+6. Przetestuj artefakt w zgodnym pipeline'ie albo workflow, porównując model bazowy, model z aktywnym adapterem i — jeśli narzędzie to umożliwia — model z adapterem wyłączonym.
+
+`Safetensors` udostępnia bezpieczny format tensorów, ale samo rozszerzenie pliku nie dowodzi poprawności adaptera ani jego zgodności z modelem (`SOURCE_VERIFIED` dla właściwości formatu, `NEEDS_VERIFICATION` dla konkretnego artefaktu) [5].
+
+## Testowanie
+
+Nie wykonano tutaj treningu, uruchomienia sesji Kaggle, eksportu adaptera, testu Diffusers ani testu lokalnego ComfyUI. Status `LOCALLY_TESTED` nie jest deklarowany.
+
+Plan weryfikacji (`PLANNED`):
+
+1. Odczytaj wersje interpretera i bibliotek oraz dostępność GPU w sesji.
+2. Sprawdź mały, kontrolowany zestaw danych i manifest.
+3. Sprawdź inicjalizację modelu i adaptera bez pełnego treningu, jeśli wybrany stos to umożliwia.
+4. Wykonaj krótki przebieg z logiem i checkpointem.
+5. Odczytaj checkpoint i sprawdź eksport.
+6. Zweryfikuj klucze, kształty tensorów i metadane.
+7. Wykonaj kontrolowane porównanie inferencji.
+8. Jeśli celem jest ComfyUI, sprawdź workflow na komputerze użytkownika.
+9. Zachowaj komendy, wersje, sprzęt, logi, błędy i ścieżki artefaktów.
+
+Test bez zapisanego dowodu pozostaje `NEEDS_VERIFICATION`. Plan testu nie jest wynikiem testu.
+
+## Diagnostyka
+
+- **Brak pamięci GPU:** zachowaj pełny komunikat, krok, model, rozdzielczość, batch size, dtype i ustawienia checkpointingu. Weryfikuj parametry dla konkretnego GPU; nie przyjmuj uniwersalnej wartości. PyTorch udostępnia metryki pamięci alokowanej i zarezerwowanej, które pomagają odróżnić użycie tensorów od pamięci zarządzanej przez allocator [6].
+- **Różne wartości narzędzi monitorujących:** porównaj zakres pomiaru PyTorch z pomiarem urządzenia. Nie wyciągaj wniosku wyłącznie z jednej liczby.
+- **Nieznany klucz adaptera lub niezgodny kształt:** sprawdź model bazowy, architekturę, komponent, `target_modules`, format i wersję frameworka. Zgodność pozostaje `NEEDS_VERIFICATION`, dopóki odczyt w docelowym stosie nie zakończy się powodzeniem.
+- **Brak widocznego efektu LoRA:** potwierdź załadowanie, aktywację, skalę, prompt lub token oraz zgodność modelu bazowego. Porównaj kontrolowane wyniki.
+- **Brak checkpointu po przerwaniu sesji:** sprawdź log, katalog wyjściowy i limit sesji. Nie zakładaj automatycznego wznowienia ani retry.
+- **Błąd wejścia lub ścieżki:** sprawdź manifest, zamontowane wejścia i rzeczywiste ścieżki w bieżącej sesji.
+- **Błąd lokalnego ComfyUI:** ręcznie sprawdź `E:\AI AGENTS\ComfyUI_windows_portable` na komputerze użytkownika. Manus nie ma do niej automatycznego dostępu.
+- **Błąd usługi zewnętrznej:** zachowaj log, sprawdź aktualne limity, ustawienia Internetu, prywatność i warunki usługi. Nie zakładaj automatycznego ponowienia ani określonego kosztu.
+
+## Ograniczenia
+
+- Kaggle jest opcjonalnym backendem uruchamianym ręcznie i wymaga zgody użytkownika (`REPORTED`).
+- Dokument nie zakłada automatycznego uruchamiania, automatycznego przesyłania danych, stałej dostępności GPU ani braku kosztów (`NEEDS_VERIFICATION`).
+- Hiperparametry treningu, wymagania pamięci, czas i liczba checkpointów zależą od modelu, danych, GPU, wersji i skryptu (`NEEDS_VERIFICATION`).
+- Adapter LoRA nie zastępuje modelu bazowego. Zgodność konkretnego adaptera z inną rodziną modelu lub innym workflow nie jest domyślna (`SOURCE_VERIFIED` dla ogólnej zależności, `NEEDS_VERIFICATION` dla artefaktu) [2] [3].
+- Brak dostępu do Windows oznacza brak potwierdzenia instalacji i testu ComfyUI.
+- Dokumentacja nie zastępuje manifestu danych, konfiguracji eksperymentu, logów ani testu artefaktu.
+- Nie publikuj danych lub artefaktów bez sprawdzenia licencji i uzyskania wymaganej zgody.
+
+## Statusy informacji
+
+- `SOURCE_VERIFIED` — twierdzenie potwierdzone w przywołanym źródle oficjalnym; nie oznacza testu w tym środowisku.
+- `REPORTED` — informacja z repozytorium, polecenia użytkownika albo dostarczonego raportu, bez niezależnego testu w tej sesji.
+- `NEEDS_VERIFICATION` — informacja zależna od modelu, GPU, danych, wersji, usługi lub środowiska i wymagająca sprawdzenia.
+- `PLANNED` — zamierzona procedura lub element, którego nie zaimplementowano albo nie potwierdzono.
+- `LOCALLY_TESTED` — wynik rzeczywistego testu lokalnego z zapisanym wynikiem i identyfikowalną konfiguracją. Dla tego dokumentu status ten nie występuje.
+
+## Źródła oficjalne
+
+[1]: https://www.kaggle.com/docs/notebooks "Kaggle Notebooks documentation"
+[2]: https://huggingface.co/docs/peft/index "Hugging Face PEFT documentation"
+[3]: https://huggingface.co/docs/diffusers/main/en/tutorials/using_peft_for_inference "Hugging Face Diffusers LoRA documentation"
+[4]: https://docs.comfy.org/built-in-nodes/LoraLoader "ComfyUI LoRA Loader documentation"
+[5]: https://huggingface.co/docs/safetensors/index "Hugging Face Safetensors documentation"
+[6]: https://pytorch.org/docs/stable/notes/cuda.html "PyTorch CUDA semantics and memory management"

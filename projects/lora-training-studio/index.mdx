@@ -1,0 +1,199 @@
+# LoRA Training Studio — indeks
+
+## Cel
+
+LoRA Training Studio ma opisywać powtarzalny i kontrolowalny proces dostosowania istniejącego modelu przez adapter LoRA. Indeks rozdziela cztery etapy, które nie powinny być mieszane: **przygotowanie danych**, **konfigurację treningu**, **checkpointy** oraz **eksport i użycie adaptera**.
+
+LoRA zamraża wagi modelu bazowego i dodaje mniejszy zestaw parametrów trenowalnych. Dzięki temu adapter może być mniejszy niż pełny model, ale jego zgodność nadal zależy od modelu bazowego, komponentów pipeline’u i narzędzia użytego do treningu lub inferencji. To ogólne zachowanie jest opisane w oficjalnej dokumentacji PEFT i Diffusers [1] [2].
+
+**Status indeksu:** `REPORTED` dla ustaleń wynikających z repozytorium i polecenia użytkownika; `SOURCE_VERIFIED` dla twierdzeń opartych na wymienionych źródłach oficjalnych; `PLANNED` dla niezaimplementowanych elementów projektu; `NEEDS_VERIFICATION` dla ustawień zależnych od modelu, GPU lub środowiska; `LOCALLY_TESTED` nie jest obecnie deklarowany.
+
+## Zakres
+
+W zakresie projektu znajduje się dokumentowanie:
+
+- wejściowych danych treningowych, ich metadanych, captionów, podziału i kontroli jakości;
+- wyboru modelu bazowego oraz parametrów zależnych od architektury;
+- konfiguracji treningu, monitorowania przebiegu i zachowania checkpointów;
+- walidacji artefaktów po treningu;
+- eksportu adaptera, nazewnictwa, metadanych i procedury użycia w zgodnym środowisku;
+- pracy lokalnej z ComfyUI oraz opcjonalnego, ręcznie uruchamianego backendu Kaggle.
+
+Poza zakresem indeksu pozostają: wybór konkretnego modelu bez decyzji użytkownika, automatyczne uruchamianie Kaggle, automatyczne pobieranie modeli, zarządzanie sekretami, publikacja artefaktów oraz obietnica jakości generowanych obrazów. Te elementy są `PLANNED` albo wymagają osobnej decyzji i weryfikacji.
+
+## Dokumenty projektu
+
+Poniższe pliki są przewidzianymi punktami wejścia. Ich szczegółowa zawartość nie jest podstawą niniejszego indeksu, jeżeli nie została faktycznie zapisana i zweryfikowana:
+
+- [`training.mdx`](./training) — procedura i konfiguracja treningu; `PLANNED`.
+- [`export.mdx`](./export) — walidacja i eksport adaptera; `PLANNED`.
+- [`kaggle-notebook.mdx`](./kaggle-notebook) — ręczny wariant notebooka Kaggle; `PLANNED`.
+- [`index.mdx`](./index) — bieżący indeks; `REPORTED` i `SOURCE_VERIFIED` w zakresie źródeł przywołanych poniżej.
+
+Brak implementacji, skryptu lub wyniku w tych plikach nie może być interpretowany jako działająca funkcja.
+
+## Architektura
+
+Przepływ logiczny jest następujący:
+
+```text
+Dane i licencje
+    -> kontrola jakości i captiony
+    -> model bazowy + konfiguracja zależna od modelu/GPU
+    -> trening adaptera LoRA
+    -> checkpointy i logi
+    -> walidacja artefaktu
+    -> eksport, metadane i test użycia
+    -> ComfyUI lub inne zgodne środowisko inferencji
+```
+
+Model bazowy pozostaje osobnym artefaktem. Adapter LoRA nie powinien być traktowany jako samodzielny model. Przy użyciu należy jawnie zapisać identyfikator lub ścieżkę modelu bazowego, wariant architektury, komponenty objęte adapterem oraz narzędzie, które ma go wczytać. Diffusers opisuje wczytywanie adapterów przez `load_lora_weights()` oraz zarządzanie aktywnymi adapterami; konkretna zgodność dla wybranego modelu pozostaje `NEEDS_VERIFICATION` [2].
+
+ComfyUI jest docelowo lokalnym interfejsem i silnikiem workflow. Oficjalna dokumentacja opisuje węzły, workflow oraz uruchamianie lokalne [4]. Integracja konkretnego pliku LoRA z konkretnym workflow nie jest w tym indeksie potwierdzona i ma status `PLANNED`/`NEEDS_VERIFICATION`.
+
+## Wymagania
+
+### Lokalne środowisko Windows
+
+Środowisko wskazane przez repozytorium to Windows z lokalnym GPU. Ścieżka instalacji ComfyUI, podana jako założenie projektu, to:
+
+```text
+E:\AI AGENTS\ComfyUI_windows_portable
+```
+
+Nie oznacza to, że Manus ma dostęp do tej ścieżki. Nie potwierdzono jej istnienia, wersji ComfyUI, wersji sterownika, modelu GPU ani dostępnej pamięci VRAM; wszystkie te informacje mają status `REPORTED` lub `NEEDS_VERIFICATION`. Interpreter ComfyUI, jeśli istnieje, należy rozpatrywać osobno od systemowego Pythona:
+
+```text
+E:\AI AGENTS\ComfyUI_windows_portable\python_embeded\python.exe
+```
+
+Przed instalacją lub zmianą pakietów użytkownik powinien sprawdzić interpreter i wersje bibliotek w tym środowisku. Nie należy modyfikować instalacji ComfyUI bez analizy jej stanu.
+
+### Zależności logiczne
+
+- framework treningu, np. Diffusers/PEFT, dobierany do modelu; wybór konkretnego stosu jest `NEEDS_VERIFICATION`;
+- PyTorch z działającym backendem GPU, którego wersje CUDA, sterownika i biblioteki muszą być zgodne; `NEEDS_VERIFICATION`;
+- format artefaktu, preferencyjnie `safetensors`, jeśli wspiera go wybrany pipeline; format jest opisany oficjalnie jako bezpieczny format tensorów, ale zgodność z każdym narzędziem trzeba sprawdzić [6];
+- miejsce na dane, checkpointy, logi i eksport; konkretne limity nie są w tym repozytorium potwierdzone.
+
+Nie wpisuj do dokumentacji wersji pakietów, parametrów VRAM, batch size ani ustawień precision bez potwierdzenia dla wybranego modelu i GPU.
+
+## Konfiguracja
+
+Konfigurację należy przechowywać jako jawny, wersjonowany opis eksperymentu, bez sekretów. Minimalny zestaw pól do ustalenia (`PLANNED`) obejmuje:
+
+- model bazowy i jego źródło;
+- architekturę oraz komponenty, do których adapter ma być dołączony;
+- ścieżki danych, katalogu logów i katalogu checkpointów;
+- rozmiar i preprocessing obrazu, jeśli dotyczy;
+- strategię captionów i token wyzwalający, jeśli jest używany;
+- rank, skalę adaptera, learning rate, liczbę kroków/epok, batch size, gradient accumulation i scheduler;
+- dtype, gradient checkpointing, akumulację oraz ustawienia oszczędzania pamięci;
+- seed, sposób walidacji i kryteria wyboru checkpointu;
+- format eksportu i metadane.
+
+Rank, learning rate, rozdzielczość, batch size, dtype, liczba kroków, target modules i zakres trenowanych komponentów są zależne od modelu, danych i GPU. Każde ich konkretne ustawienie ma status `NEEDS_VERIFICATION`, dopóki nie zostanie potwierdzone dokumentacją wybranego stosu i testem w tym środowisku.
+
+PyTorch udostępnia między innymi `memory_allocated()`, `max_memory_allocated()`, `memory_reserved()` i `max_memory_reserved()` do obserwacji użycia pamięci; różnica między pamięcią zajętą przez tensory a pamięcią zarządzaną przez allocator jest istotna diagnostycznie [3]. Nie ustala to jednak bezpiecznego batch size dla konkretnego treningu.
+
+Nie zapisuj tokenów, kluczy API, haseł ani prywatnych identyfikatorów w konfiguracji. Zgodnie z zasadami repozytorium sekrety powinny pozostać poza Git.
+
+## Procedura użycia
+
+### 1. Przygotowanie danych — `PLANNED`
+
+1. Ustal prawa do danych, źródło i przeznaczenie zbioru.
+2. Utwórz kopię roboczą i sprawdź, czy pliki są czytelne oraz nie są uszkodzone.
+3. Usuń duplikaty i przykłady niezgodne z celem; kryteria należy zapisać w opisie eksperymentu.
+4. Przygotuj captiony lub inne metadane zgodnie z wymaganiami wybranego modelu.
+5. Rozdziel dane treningowe i walidacyjne, jeśli narzędzie tego wymaga.
+6. Zapisz manifest: nazwa pliku, rozmiar, źródło, caption, hash opcjonalnie oraz decyzję o włączeniu.
+
+Nie deklaruj jakości zbioru bez przeprowadzonej kontroli. Brak manifestu lub brak kryteriów selekcji oznacza `NEEDS_VERIFICATION`.
+
+### 2. Konfiguracja treningu — `PLANNED` / `NEEDS_VERIFICATION`
+
+1. Wybierz model bazowy i sprawdź, czy wybrany skrypt obsługuje jego architekturę.
+2. Ustal komponenty i moduły, które mają otrzymać adapter.
+3. Ustal parametry treningu dopiero po ocenie VRAM, RAM, rozdzielczości i rozmiaru modelu.
+4. Zapisz konfigurację, seed, wersje środowiska i źródło modelu.
+5. Wykonaj najpierw mały przebieg diagnostyczny, jeśli narzędzie i zasoby na to pozwalają; jego parametry i wynik trzeba zapisać, a nie zakładać.
+6. Włącz zapisywanie checkpointów i logów zgodnie z możliwościami wybranego skryptu.
+
+Oficjalne przykłady Diffusers są samodzielnymi skryptami szkoleniowymi i wymagają dopasowania do konkretnego przypadku, a przykłady LoRA nie są automatycznie poprawne dla każdego modelu [7].
+
+### 3. Checkpointy — `PLANNED`
+
+Checkpoint jest artefaktem pośrednim, nie automatycznie finalnym eksportem. Dla każdego checkpointu zapisz co najmniej: krok/epokę, konfigurację, seed, model bazowy, dane wejściowe, logi oraz informację, czy zapis zakończył się poprawnie. Zachowaj kilka punktów tylko wtedy, gdy jest to potrzebne do porównania lub wznowienia.
+
+Przed usunięciem checkpointów sprawdź, czy można z nich wznowić trening i czy plik nie jest częściowo zapisany. Brak przeprowadzonej kontroli wznowienia oznacz `NEEDS_VERIFICATION`.
+
+### 4. Eksport i użycie — `PLANNED` / `NEEDS_VERIFICATION`
+
+1. Wybierz checkpoint na podstawie wcześniej zapisanych kryteriów, nie wyłącznie nazwy pliku.
+2. Wyeksportuj adapter do formatu obsługiwanego przez docelowe narzędzie.
+3. Sprawdź, czy plik można odczytać oraz czy zawiera oczekiwane tensory i metadane.
+4. Zachowaj relację adapter–model bazowy–komponenty–wersja konfiguracji.
+5. Załaduj adapter w zgodnym pipeline’ie lub workflow i porównaj wynik z bazą.
+6. Dopiero po takim sprawdzeniu oznacz artefakt jako gotowy do użycia.
+
+`safetensors` udostępnia bezpieczny odczyt tensorów, między innymi przez `safe_open`; sam format nie dowodzi jednak, że adapter jest zgodny z danym modelem [6].
+
+## Kaggle i usługi zewnętrzne
+
+Kaggle jest opcjonalnym, ręcznie uruchamianym backendem. Dokumentacja Kaggle opisuje zdalne notebooki, wersjonowanie oraz możliwość wyboru GPU, ale dostępność zasobów może być ograniczona i zależeć od kolejki [5]. Ten indeks nie uruchamia notebooka, nie przesyła danych, nie zakłada automatycznego dostępu ani nie potwierdza kosztu usługi.
+
+Przed użyciem Kaggle użytkownik musi wyrazić zgodę, ocenić prywatność i licencję danych, skonfigurować notebook oraz potwierdzić aktualne limity i dostępność. Wynik zewnętrznego uruchomienia należy oznaczyć `REPORTED`, dopóki nie zostanie dostarczony log lub artefakt do weryfikacji.
+
+## Testowanie
+
+Nie wykonano testu treningu, eksportu, wczytania adaptera, workflow ComfyUI ani uruchomienia Kaggle w ramach przygotowania tego pliku. Status `LOCALLY_TESTED` nie jest deklarowany.
+
+Plan minimalnej weryfikacji (`PLANNED`):
+
+1. sprawdzenie wersji interpretera i zależności w wybranym środowisku;
+2. test odczytu małego, kontrolowanego zbioru;
+3. test inicjalizacji modelu i adaptera bez pełnego treningu, jeśli wspiera go wybrany stos;
+4. krótki przebieg treningu z zapisem logu i checkpointu;
+5. ponowny odczyt checkpointu oraz walidacja eksportu;
+6. test inferencji z bazą, z adapterem i z wyłączonym adapterem;
+7. test docelowego workflow ComfyUI;
+8. zapis komend, wersji, sprzętu, wyników i błędów.
+
+Każdy punkt bez logu lub powtarzalnego wyniku pozostaje `NEEDS_VERIFICATION`. Nie należy wpisywać przewidywanego wyniku jako wyniku testu.
+
+## Diagnostyka
+
+- **Brak pamięci GPU:** zapisz moment błędu i wartości pamięci; sprawdź batch size, rozdzielczość, dtype, gradient accumulation i ustawienia modelu. Nie przyjmuj jednej uniwersalnej wartości; `NEEDS_VERIFICATION`.
+- **Różnica między `nvidia-smi` a PyTorch:** allocator PyTorch może utrzymywać zarezerwowaną, nieużywaną pamięć. Porównaj metryki PyTorch opisane w [3] zamiast wyciągać wniosek tylko z jednego narzędzia.
+- **Nieznany lub niezgodny klucz adaptera:** sprawdź model bazowy, komponent (`UNet`, text encoder lub odpowiednik), format i wersję narzędzia. Oznacz zgodność `NEEDS_VERIFICATION`.
+- **Brak efektu LoRA:** potwierdź, że adapter został załadowany, aktywowany i zastosowany z właściwą skalą; sprawdź prompt/token oraz zgodność modelu bazowego. Nie traktuj braku widocznego efektu jako dowodu poprawności ani błędu bez porównania.
+- **Błąd ścieżki Windows:** sprawdź ścieżkę ręcznie w lokalnym środowisku. Manus nie ma automatycznego dostępu do `E:\AI AGENTS\ComfyUI_windows_portable`.
+- **Błąd Kaggle lub zewnętrznego pobierania:** zachowaj log, sprawdź ustawienia Internetu, wejścia i limity w aktualnej dokumentacji usługi; nie zakładaj automatycznego retry ani dostępności GPU.
+
+## Ograniczenia i ryzyka
+
+- Ustawienia treningu nie są uniwersalne. Model, rozdzielczość, dane, GPU, dtype i skrypt mogą zmienić wymagania (`NEEDS_VERIFICATION`).
+- Adapter nie zastępuje modelu bazowego i może być niezgodny z inną rodziną lub wersją modelu (`SOURCE_VERIFIED` w zakresie ogólnej zasady rozdzielenia wag; zgodność konkretnego artefaktu `NEEDS_VERIFICATION`) [1] [2].
+- Brak lokalnego dostępu do Windows oznacza brak potwierdzenia instalacji ComfyUI i brak statusu `LOCALLY_TESTED`.
+- Kaggle i inne usługi zewnętrzne nie są automatycznie uruchamiane i mogą mieć zmienne limity, kolejki, wymagania prywatności lub koszty; szczegóły trzeba sprawdzić przed użyciem.
+- Nie wolno publikować danych ani artefaktów bez potwierdzenia licencji i zgody.
+- Dokumentacja nie może zastąpić logów eksperymentu ani walidacji artefaktu.
+
+## Statusy informacji
+
+- `SOURCE_VERIFIED` — informacja potwierdzona w przywołanym źródle oficjalnym; nie oznacza, że została uruchomiona lokalnie.
+- `REPORTED` — informacja wynikająca z repozytorium, polecenia użytkownika albo dostarczonego raportu, bez niezależnego testu w tej sesji.
+- `NEEDS_VERIFICATION` — informacja zależna od konkretnego modelu, GPU, wersji, danych, usługi albo środowiska; wymaga sprawdzenia.
+- `PLANNED` — zamierzony element projektu, procedura lub dokument, który nie został jeszcze zaimplementowany albo potwierdzony.
+- `LOCALLY_TESTED` — wynik rzeczywistego testu wykonanego w lokalnym środowisku z zapisanym wynikiem. Ten indeks nie zawiera obecnie takiego wyniku.
+
+## Źródła
+
+[1]: https://huggingface.co/docs/peft/index "Hugging Face PEFT documentation"
+[2]: https://huggingface.co/docs/diffusers/main/en/tutorials/using_peft_for_inference "Hugging Face Diffusers LoRA documentation"
+[3]: https://pytorch.org/docs/stable/notes/cuda.html "PyTorch CUDA semantics and memory management"
+[4]: https://docs.comfy.org/ "ComfyUI official documentation"
+[5]: https://www.kaggle.com/docs/notebooks "Kaggle Notebooks official documentation"
+[6]: https://huggingface.co/docs/safetensors/index "Hugging Face Safetensors documentation"
+[7]: https://huggingface.co/docs/diffusers/main/en/training/overview "Hugging Face Diffusers training overview"

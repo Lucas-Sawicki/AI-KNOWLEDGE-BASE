@@ -1,0 +1,233 @@
+# GPU Backend — lokalne GPU
+
+> **Status dokumentu:** `REPORTED` dla założeń z `AGENTS.md` i `README.md`; `SOURCE_VERIFIED` dla zachowania narzędzi opisanego w źródłach oficjalnych; `NEEDS_VERIFICATION` dla konkretnego komputera, instalacji, modelu i GPU; `PLANNED` dla szablonów i niepotwierdzonych procedur; `LOCALLY_TESTED` wyłącznie po zapisaniu reprodukowalnego testu.
+>
+> Ten dokument jest procedurą, nie potwierdzeniem uruchomienia środowiska. Nie mam dostępu do lokalnej ścieżki Windows `E:\AI AGENTS\ComfyUI_windows_portable`.
+
+## Cel
+
+Lokalny backend GPU jest podstawowym środowiskiem wykonywania zadań AI, w szczególności workflow ComfyUI oraz przygotowania i treningu LoRA. Celem jest kontrolowane wykorzystanie VRAM, RAM, CPU i dysku, z jawnymi wejściami, parametrami, logami i artefaktami.
+
+Dokument pomaga rozpoznać, czy GPU jest widoczne dla właściwego interpretera, uruchomić ComfyUI z wybranym urządzeniem, dopasować obciążenie do rzeczywistej pamięci oraz rozdzielić etapy LoRA. Nie ustala celów wydajnościowych ani uniwersalnych hiperparametrów (`NEEDS_VERIFICATION`).
+
+**Status:** `REPORTED` — cel wynika z zasad repozytorium.
+
+## Zakres i granice
+
+W zakresie są lokalny Windows, ComfyUI, sterownik i runtime GPU, VRAM/RAM, lokalne artefakty, diagnostyka i testy. W zakresie jest ręczne przygotowanie do użycia zewnętrznego backendu, ale nie jego automatyczne uruchamianie.
+
+Poza zakresem są: automatyczny fallback do Kaggle lub innej usługi, potwierdzanie bezpłatności, kosztów, limitów albo dostępności usług zewnętrznych, instalowanie lub modyfikowanie lokalnej instalacji bez analizy i zgody, wybór modelu lub hiperparametrów bez danych o GPU i modelu oraz przechowywanie sekretów w repozytorium.
+
+Kaggle i inne usługi zewnętrzne wymagają osobnej decyzji oraz ręcznej weryfikacji dostępu, limitów, opłat, uwierzytelnienia i transferu danych (`NEEDS_VERIFICATION`).
+
+**Status:** `REPORTED`; przyszła automatyzacja jest `PLANNED`.
+
+## Architektura
+
+```text
+zadanie: workflow / trening / eksport
+                  |
+                  v
+       manifest wejść i konfiguracja
+                  |
+                  v
+        lokalny adapter GPU/ComfyUI
+                  |
+        +---------+----------+
+        |                    |
+        v                    v
+   interpreter          sterownik + runtime
+   ComfyUI                       |
+        |                        v
+        +------------->      lokalne GPU
+                  |
+          VRAM <-> RAM/CPU <-> dysk
+                  |
+          logi, checkpointy, eksport
+```
+
+Zadanie określa wejścia, artefakt i kryterium zakończenia. Manifest zapisuje ścieżki, model, workflow, parametry i wersje odczytane lokalnie. Adapter wskazuje interpreter i urządzenie, ale nie przełącza samoczynnie na Kaggle. Runtime obejmuje sterownik, bibliotekę obliczeniową, PyTorch lub inny używany runtime oraz ComfyUI. Warstwa artefaktów obejmuje logi, cache, checkpointy i eksport.
+
+PyTorch rozróżnia pamięć zajętą przez tensory oraz pamięć zarezerwowaną przez caching allocator [1].
+
+**Status:** `SOURCE_VERIFIED` dla mechanizmu PyTorch; `NEEDS_VERIFICATION` dla tej instalacji.
+
+## Wymagania
+
+### Windows i ComfyUI
+
+Wymagania referencyjne:
+
+- Windows z lokalnym GPU; model, sterownik, VRAM i dostęp procesu: `NEEDS_VERIFICATION`;
+- ComfyUI: `E:\AI AGENTS\ComfyUI_windows_portable`;
+- interpreter ComfyUI: `E:\AI AGENTS\ComfyUI_windows_portable\python_embeded\python.exe`;
+- zgodny sterownik, runtime, biblioteki, RAM i wolne miejsce: `NEEDS_VERIFICATION`;
+- modele i dane o znanym pochodzeniu oraz licencji.
+
+Podane ścieżki są wymaganiem referencyjnym z repozytorium. Nie oznaczają, że katalog istnieje ani że został przeze mnie odczytany.
+
+### Diagnostyka
+
+`nvidia-smi` może zebrać dane o urządzeniu NVIDIA, sterowniku, pamięci i procesach, jeśli jest dostępne. Dokumentacja NVIDIA zaznacza, że nie wszystkie pola są obsługiwane w każdym urządzeniu i trybie [3]. Nie utożsamiaj wyniku `nvidia-smi` z potwierdzeniem, że interpreter ComfyUI wykona zadanie.
+
+PyTorch udostępnia `torch.cuda.is_available()` oraz API identyfikacji urządzeń; ich wynik zależy od zainstalowanego builda i środowiska [1].
+
+**Status:** `SOURCE_VERIFIED` dla API i ograniczeń źródeł; lokalny wynik: `NEEDS_VERIFICATION`.
+
+## Konfiguracja
+
+Poniższy manifest jest szablonem dokumentacyjnym, nie istniejącym plikiem aplikacji. Wartości `null` i `[]` wymagają uzupełnienia lokalnie. Nie wpisuj sekretów.
+
+```yaml
+backend: local
+comfyui_root: "E:\\AI AGENTS\\ComfyUI_windows_portable"
+python_executable: "E:\\AI AGENTS\\ComfyUI_windows_portable\\python_embeded\\python.exe"
+cuda_device: null
+model_paths: []
+workflow_path: null
+input_dir: null
+output_dir: null
+checkpoint_dir: null
+```
+
+ComfyUI opisuje opcje `--cuda-device`, `--cpu`, `--lowvram`, `--highvram`, `--gpu-only`, `--cache-none`, `--output-directory` i `--base-directory` w swoim interfejsie CLI [2]. Nie wybieraj ich bez weryfikacji wpływu na konkretny model i GPU.
+
+Dla kodu PyTorch można ograniczać widoczne urządzenia przez `CUDA_VISIBLE_DEVICES`, a urządzenie wybierać przez `torch.device` lub `torch.cuda.device` [1]. Zapisz w logu zarówno użyty identyfikator, jak i wynik diagnostyki, ponieważ ograniczenie widoczności wpływa na numerację procesu.
+
+Nie ustalono tutaj wersji Pythona, PyTorch, CUDA, sterownika, ComfyUI, dtype, rozdzielczości, batch size, liczby kroków ani learning rate. Są zależne od instalacji, modelu lub GPU (`NEEDS_VERIFICATION`).
+
+**Status:** `PLANNED` — YAML jest szablonem.
+
+## Procedura użycia
+
+### 1. Zdefiniuj zadanie
+
+Zapisz identyfikator zadania, model bazowy, workflow lub skrypt, dane wejściowe, oczekiwany artefakt, kryterium zakończenia i lokalizację logu. Nie uruchamiaj zadania bez ustalenia miejsca wyniku.
+
+### 2. Zweryfikuj ścieżki na Windows
+
+Poniższe polecenia należy uruchomić na docelowym Windows, nie w tym repozytorium:
+
+```powershell
+$root = 'E:\AI AGENTS\ComfyUI_windows_portable'
+$python = Join-Path $root 'python_embeded\python.exe'
+Test-Path $root
+Test-Path $python
+& $python --version
+```
+
+Zapisz rzeczywisty wynik i wersję interpretera. `True` nie potwierdza zgodności GPU ani poprawnego uruchomienia (`NEEDS_VERIFICATION`).
+
+### 3. Zbierz stan GPU i runtime
+
+Dla NVIDIA, jeśli narzędzie jest dostępne:
+
+```powershell
+nvidia-smi
+nvidia-smi --query-gpu=name,driver_version,memory.total,memory.used,memory.free --format=csv
+```
+
+Opcja `--query-gpu` i pola diagnostyczne są opisane oficjalnie [3].
+
+Użyj tego samego interpretera, który ma uruchamiać zadanie:
+
+```powershell
+& $python -c "import torch; print('torch=', torch.__version__); print('cuda_available=', torch.cuda.is_available()); print('device_count=', torch.cuda.device_count()); print('device_names=', [torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())])"
+```
+
+Jeśli import lub wywołanie się nie powiedzie, zachowaj pełny błąd. Nie instaluj losowych pakietów i nie podmieniaj interpretera bez analizy.
+
+### 4. Uruchom minimalny workflow
+
+Użyj małego, znanego workflow i kontrolowanych danych. Oficjalne repozytorium ComfyUI opisuje uruchamianie i opcje CLI [2], ale ten dokument nie potwierdza konkretnej komendy dla wskazanej instalacji portable.
+
+Przykład do dostosowania po sprawdzeniu struktury instalacji:
+
+```powershell
+Set-Location $root
+& $python main.py --cuda-device 0
+```
+
+Powyższy przykład ma status `PLANNED`: obecność `main.py`, identyfikator `0` i akceptacja opcji wymagają lokalnej weryfikacji. Samo otwarcie interfejsu nie jest dowodem wykonania workflow. Zachowaj log, workflow, model, urządzenie i plik wynikowy.
+
+### 5. Zarządzaj pamięcią
+
+Dopiero po rozpoznaniu błędu dobieraj rozdzielczość, batch size, dtype, cache lub offload do konkretnego modelu i GPU. Nie podano uniwersalnych wartości. `torch.cuda.empty_cache()` zwalnia nieużywane bloki cache, ale nie pamięć zajętą przez żywe tensory [1]. Pojedyncza liczba z `nvidia-smi` nie wyjaśnia więc całego OOM.
+
+## LoRA — cztery oddzielne etapy
+
+### Przygotowanie danych
+
+Zdefiniuj źródło, prawa do użycia, format, rozmiary, nazwy, opisy, filtrowanie, deduplikację, podział i manifest. Sprawdź, czy dane są czytelne dla wybranego narzędzia. Liczba obrazów, struktura katalogów i captioning zależą od modelu (`NEEDS_VERIFICATION`). Wynikiem jest nazwany zbiór oraz manifest, najlepiej z identyfikacją plików.
+
+### Konfiguracja treningu
+
+Wybierz model bazowy, implementację LoRA, rozdzielczość, batch size, learning rate, kroki/epoki, dtype, akumulację gradientu, seed, strategię pamięci i częstotliwość zapisu. Wszystkie ustawienia zależne od modelu/GPU/narzędzia są `NEEDS_VERIFICATION`; niezweryfikowane wartości są `PLANNED`. Zapisz manifest i rzeczywiste wersje przed treningiem.
+
+### Checkpointy
+
+Ustal osobno format, częstotliwość, nazewnictwo, katalog, retencję, wymagane miejsce i procedurę wznowienia. Checkpoint jest artefaktem pośrednim i nie jest automatycznie finalną LoRA. Test wznowienia wymaga kontrolowanego przerwania, ponownego odczytu i logu (`NEEDS_VERIFICATION`).
+
+### Eksport
+
+Ustal format finalny, metadane, kompatybilność z docelowym loaderem, nazwę, lokalizację i test ponownego załadowania. Nie podaję fikcyjnej komendy eksportu, bo zależy ona od narzędzia i modelu. Jeśli używany jest `safetensors`, zgodność formatu należy sprawdzić w jego oficjalnej dokumentacji [4].
+
+**Status:** proces dla nieokreślonego narzędzia i parametrów: `PLANNED`; ustawienia zależne od modelu/GPU: `NEEDS_VERIFICATION`; brak podstaw do `LOCALLY_TESTED` bez raportu.
+
+## Testowanie
+
+Nie wykonano testu lokalnego Windows, ComfyUI ani GPU przy tworzeniu tego pliku. Nie deklaruję wyniku, wersji ani działającej konfiguracji.
+
+Wykonuj kolejno:
+
+1. test ścieżek i wersji interpretera;
+2. test urządzenia: `nvidia-smi`, `torch.cuda.is_available()`, liczba i nazwy urządzeń;
+3. minimalne zadanie z logiem pamięci i ewentualnym OOM;
+4. minimalny workflow ComfyUI z kontrolowanym wejściem i rzeczywistym wynikiem;
+5. mały test LoRA z osobnym sprawdzeniem checkpointu, wznowienia i eksportu;
+6. powtórzenie z tym samym manifestem i zapisanie różnic.
+
+Raport musi zawierać datę, komputer, GPU, sterownik, interpreter, wersje bibliotek, komendę/workflow, parametry, ścieżki artefaktów, wynik i pełny błąd. Dopiero taki raport nadaje konkretnej procedurze `LOCALLY_TESTED`. Do tego czasu wynik jest `NEEDS_VERIFICATION`.
+
+## Diagnostyka
+
+| Objaw | Sprawdzenia | Ostrożne działanie |
+|---|---|---|
+| GPU niewidoczne w PyTorch | właściwy interpreter, `torch.cuda.is_available()`, sterownik, build, `nvidia-smi` | zachowaj wersje i wyniki; nie zmieniaj losowo środowiska |
+| `nvidia-smi` działa, ComfyUI nie | interpreter, import runtime, log startowy, widoczne urządzenia | rozdziel problem sterownika od problemu procesu |
+| OOM VRAM | model, rozdzielczość, batch, dtype, cache, inne procesy | zmniejsz obciążenie po weryfikacji wpływu |
+| wysoka pamięć w `nvidia-smi` | pamięć tensorów, pamięć zarezerwowana, inne procesy | nie zakładaj, że `empty_cache()` zwolni żywe tensory [1] |
+| workflow nie ładuje modelu | ścieżka, nazwa, format, loader, model paths | sprawdź źródło i zgodność |
+| brak pliku treningu | log, katalog, prawa zapisu, przerwanie, miejsce | nie ogłaszaj sukcesu bez artefaktu i testu odczytu |
+| błąd po fladze VRAM | wersja ComfyUI, opcja CLI, model, log | zmieniaj tylko odtwarzalną zmianę; oznacz wynik `NEEDS_VERIFICATION` |
+| usługa zewnętrzna nie działa | dostęp, limity, uwierzytelnienie, dane, koszty | nie włączaj fallbacku; wymagaj decyzji użytkownika |
+
+## Ograniczenia i ryzyka
+
+- Kompatybilność zależy od GPU, sterownika, runtime, modelu, wersji bibliotek i instalacji.
+- Nie mam dostępu do `E:\AI AGENTS\ComfyUI_windows_portable`; ścieżka nie potwierdza istnienia instalacji.
+- `nvidia-smi` może nie udostępniać wszystkich pól w każdym urządzeniu lub trybie [3].
+- PyTorch może raportować pamięć allocatorów inaczej niż pamięć aktywnie zajętą przez tensory [1].
+- Kaggle i inne usługi nie są automatyczne, gwarantowane ani domyślnie bezpłatne; dostępność, limity i koszty trzeba sprawdzić.
+- Checkpoint, eksport i wynik workflow są odrębnymi artefaktami.
+- Dane i modele mogą podlegać licencjom i ograniczeniom prywatności.
+- Brak reprodukowalnego raportu oznacza brak statusu `LOCALLY_TESTED`.
+
+## Statusy
+
+- `SOURCE_VERIFIED` — informacja o narzędziu lub mechanizmie potwierdzona w przywołanym źródle oficjalnym; nie oznacza testu lokalnego.
+- `REPORTED` — informacja z `AGENTS.md`, `README.md` lub jawnego raportu, bez niezależnego testu w bieżącym środowisku.
+- `NEEDS_VERIFICATION` — informacja zależna od konkretnego komputera, GPU, instalacji, modelu, usługi lub wyniku testu.
+- `PLANNED` — propozycja, szablon lub procedura bez potwierdzonej implementacji albo dostępności.
+- `LOCALLY_TESTED` — rzeczywisty, odtwarzalny test lokalny z datą, komendą/workflow, środowiskiem, artefaktem i logiem.
+
+## Źródła
+
+- `REPORTED`: `AGENTS.md` — lokalny Windows, ścieżka ComfyUI, priorytet GPU i zakaz automatycznego fallbacku.
+- `REPORTED`: `README.md` — zakres GPU Backend i rozróżnianie informacji nieprzetestowanych.
+- `SOURCE_VERIFIED`: PyTorch, *CUDA semantics* — dostępność CUDA, wybór urządzenia, `CUDA_VISIBLE_DEVICES` i pamięć: [1](https://pytorch.org/docs/stable/notes/cuda.html).
+- `SOURCE_VERIFIED`: ComfyUI, oficjalne repozytorium — instalacja, uruchamianie i opcje CLI: [2](https://github.com/comfyanonymous/ComfyUI).
+- `SOURCE_VERIFIED`: NVIDIA, *nvidia-smi Documentation* — zapytania o GPU, pamięć, sterownik i procesy: [3](https://docs.nvidia.com/deploy/nvidia-smi/index.html).
+- `SOURCE_VERIFIED`: Hugging Face, *safetensors documentation* — dokumentacja formatu: [4](https://huggingface.co/docs/safetensors/index).
+
+Przyszłe skrypty, workflow, konfiguracje i ustawienia modelowe należy opisać osobno. Bez oficjalnego źródła albo testu oznacz je `PLANNED` lub `NEEDS_VERIFICATION`.

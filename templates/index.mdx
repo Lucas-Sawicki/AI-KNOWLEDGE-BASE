@@ -1,0 +1,34 @@
+# Szablony dokumentacji
+
+## Cel
+
+Katalog `templates/` zawiera wzorce dokumentów do tworzenia spójnej dokumentacji projektów AI. Szablon jest punktem startowym, a nie dowodem istnienia implementacji.
+
+## Zasady użycia
+
+1. Skopiuj właściwy szablon do docelowego projektu.
+2. Przeczytaj `AGENTS.md`, README projektu i powiązane standardy.
+3. Zastąp pola `[do uzupełnienia]` informacjami potwierdzonymi w kodzie, konfiguracji lub oficjalnym źródle.
+4. Oznacz informacje jako `SOURCE_VERIFIED`, `REPORTED`, `NEEDS_VERIFICATION`, `PLANNED` albo `LOCALLY_TESTED`.
+5. Nie wpisuj sekretów, tokenów, haseł ani niezweryfikowanych wyników.
+6. Po zmianie uruchom odpowiednie testy i opisz ich rzeczywisty rezultat.
+
+## Dostępne szablony
+
+- [`project-template.mdx`](./project-template) — nowy projekt AI: cel, zakres, architektura, konfiguracja, testy i ograniczenia.
+- [`custom-node-template.mdx`](./custom-node-template) — dokumentacja custom node ComfyUI, rejestracja, wejścia, wyjścia i testy.
+
+## Minimalny standard dokumentu
+
+Każdy dokument powinien, zależnie od tematu, zawierać cel i zakres, architekturę lub zasady działania, zależności i wymagania środowiskowe, konfigurację oraz procedurę użycia, testy i sposób raportowania, diagnostykę i ograniczenia oraz źródła i statusy weryfikacji.
+
+## Walidacja szablonu
+
+Przed użyciem sprawdź, czy dokument nie zawiera markerów szablonowych poza świadomie pozostawionymi polami, nie deklaruje testów jako wykonanych i nie sugeruje dostępu do lokalnego środowiska, którego nie zweryfikowano.
+
+W tym repozytorium nie wykonano lokalnych testów środowisk projektowych. Status `LOCALLY_TESTED` można nadać dopiero po zapisaniu reprodukowalnego testu.
+
+## Źródła
+
+- `REPORTED`: `AGENTS.md` — wymagania dokumentacji, testowania i bezpieczeństwa.
+- `REPORTED`: `README.md` — model zarządzania zmianami i struktura repozytorium.

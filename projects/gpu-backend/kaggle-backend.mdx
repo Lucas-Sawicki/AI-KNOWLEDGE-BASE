@@ -1,0 +1,248 @@
+# GPU Backend — Kaggle
+
+> **Status dokumentu:** `REPORTED` dla założeń repozytorium; `SOURCE_VERIFIED` dla zachowania Kaggle, ComfyUI i procesu LoRA opisanego w przywołanych źródłach oficjalnych; `NEEDS_VERIFICATION` dla konkretnego konta, notebooka, modelu, danych, GPU, limitów i konfiguracji; `PLANNED` dla niezaimplementowanej automatyzacji lub szablonów; `LOCALLY_TESTED` wyłącznie po zapisaniu reprodukowalnego testu. Dokument nie potwierdza uruchomienia Kaggle ani dostępu do lokalnego Windows.
+
+## 1. Cel
+
+Kaggle jest opcjonalnym, zdalnym backendem GPU dla zadań, których nie można albo nie należy wykonać na lokalnym GPU. W tym dokumencie backend oznacza ręcznie przygotowany notebook Kaggle z jawnie opisanymi wejściami, środowiskiem, parametrami, logami i artefaktami wyjściowymi.
+
+Kaggle nie jest domyślnym ani automatycznym fallbackiem. Przeniesienie zadania wymaga decyzji użytkownika, ręcznego sprawdzenia dostępności zasobów oraz uzgodnienia sposobu transferu danych i wyników. Nie zakłada się bezpłatności, określonego limitu, konkretnego typu GPU ani ciągłej dostępności usługi (`REPORTED`, `NEEDS_VERIFICATION`).
+
+**Status:** `REPORTED` — wynika z `AGENTS.md`, `README.md` i dokumentacji GPU Backend. Konkretne cele wydajnościowe są `NEEDS_VERIFICATION`.
+
+## 2. Zakres i granice
+
+### W zakresie
+
+- przygotowanie notebooka Kaggle do kontrolowanego zadania GPU;
+- ręczne wybranie akceleratora w ustawieniach notebooka;
+- jawne dołączenie danych, modeli, skryptów i zależności;
+- uruchomienie workflow lub treningu po zatwierdzeniu;
+- zapis logów, checkpointów i eksportów w uzgodnionym miejscu;
+- diagnostyka środowiska, pamięci, zależności, uprawnień i artefaktów;
+- rozdzielenie etapów LoRA na przygotowanie danych, konfigurację treningu, checkpointy i eksport.
+
+### Poza zakresem
+
+- automatyczne uruchamianie notebooka, harmonogram, API-trigger lub automatyczny fallback;
+- automatyczne przesyłanie prywatnych danych do Kaggle;
+- deklarowanie kosztu, bezpłatności, limitów lub czasu działania usługi bez bieżącej weryfikacji;
+- przechowywanie tokenów, haseł, kluczy API lub danych logowania w repozytorium;
+- wybór modelu, workflow, batch size, rozdzielczości, dtype, learning rate lub liczby kroków bez danych o zadaniu i GPU;
+- modyfikowanie lokalnej instalacji Windows/ComfyUI bez analizy i zgody.
+
+**Status:** `REPORTED` dla granic wynikających z zasad repozytorium; przyszła automatyzacja: `PLANNED`.
+
+## 3. Architektura
+
+```text
+zadanie użytkownika
+        |
+        v
+manifest wejść + parametry + kryterium zakończenia
+        |
+        v
+ręcznie zatwierdzony notebook Kaggle
+        |
+        +--------------------+
+        |                    |
+        v                    v
+dane/model/skrypty      runtime notebooka
+(dołączone jawnie)      + wybrany akcelerator
+        |                    |
+        +---------+----------+
+                  v
+       workflow / trening / walidacja
+                  |
+        +---------+----------+
+        |                    |
+        v                    v
+       logi             checkpointy / eksport
+                  |
+                  v
+      ręcznie zweryfikowany odbiór artefaktów
+```
+
+**Manifest zadania** powinien identyfikować zadanie, repozytorium lub notebook, źródła danych, model bazowy, workflow/skrypt, parametry, docelowy katalog wyników, kryterium zakończenia i osobę zatwierdzającą uruchomienie. Manifest nie może zawierać sekretów.
+
+Kaggle Notebooks udostępnia panel ustawień sesji obejmujący między innymi język, internet i akcelerator; dane wejściowe oraz wyniki są obsługiwane jako osobne elementy środowiska notebooka [1]. Konkretne opcje widoczne dla danego konta i notebooka wymagają sprawdzenia (`NEEDS_VERIFICATION`).
+
+**Status:** `SOURCE_VERIFIED` dla mechanizmu notebooka i ustawień opisanych w [1]; konfiguracja tego projektu: `PLANNED`/`NEEDS_VERIFICATION`.
+
+## 4. Wymagania
+
+### 4.1. Kaggle
+
+Przed uruchomieniem należy ręcznie potwierdzić:
+
+- dostęp do konta i uprawnienia do użycia wskazanego notebooka, danych i modeli;
+- dostępność wybranego akceleratora w bieżącej sesji;
+- zgodność wersji Pythona, PyTorch, bibliotek treningowych i skryptu;
+- dostępne miejsce robocze, czas sesji, pamięć RAM/VRAM oraz ewentualną kolejkę;
+- ustawienie dostępu do internetu, jeśli notebook wymaga pobierania zależności;
+- licencje i zasady użycia danych oraz modeli;
+- sposób pobrania lub zapisania artefaktów po zakończeniu.
+
+Oficjalna dokumentacja opisuje ograniczenia zasobów i czasu jako właściwości środowiska notebooka, które mogą podlegać zmianom. Nie przyjmuj żadnej liczby jako stałej dla projektu bez sprawdzenia bieżącej sesji [1].
+
+### 4.2. Lokalny kontekst
+
+Lokalne środowisko referencyjne ComfyUI znajduje się pod ścieżką Windows:
+
+```text
+E:\AI AGENTS\ComfyUI_windows_portable
+```
+
+Referencyjny interpreter ComfyUI:
+
+```text
+E:\AI AGENTS\ComfyUI_windows_portable\python_embeded\python.exe
+```
+
+Nie mam dostępu do tej ścieżki i nie potwierdzam, że katalog, interpreter, GPU ani instalacja istnieją. W Kaggle należy przygotować osobne środowisko; nie zakładaj, że lokalne ścieżki Windows są dostępne w notebooku (`REPORTED`, `NEEDS_VERIFICATION`).
+
+## 5. Konfiguracja
+
+Poniższy manifest jest szablonem dokumentacyjnym, a nie istniejącym plikiem konfiguracyjnym. Puste wartości muszą zostać uzupełnione i sprawdzone w konkretnym notebooku. Nie wpisuj sekretów.
+
+```yaml
+backend: kaggle
+notebook_id: null
+accelerator: null
+internet: null
+input_sources: []
+model_source: null
+code_source: null
+base_model: null
+workflow_or_script: null
+output_dir: /kaggle/working/output
+checkpoint_dir: /kaggle/working/checkpoints
+export_path: null
+training:
+  resolution: null
+  batch_size: null
+  gradient_accumulation_steps: null
+  learning_rate: null
+  max_train_steps: null
+  mixed_precision: null
+seed: null
+```
+
+`accelerator`, `internet`, wersje bibliotek, ścieżki wejściowe i katalogi wynikowe są zależne od notebooka. Parametry w sekcji `training` są zależne od modelu, danych, narzędzia i GPU; wszystkie nieuzupełnione lub nieprzetestowane wartości mają status `NEEDS_VERIFICATION` albo `PLANNED`.
+
+Jeśli potrzebne jest programowe uwierzytelnienie Kaggle, użyj zatwierdzonego mechanizmu poza repozytorium. Oficjalna dokumentacja rozróżnia CLI, `kagglehub` oraz tokeny/API dla automatyzacji [2]. Ten dokument nie implementuje ani nie uruchamia logowania (`SOURCE_VERIFIED` dla dokumentacji, `PLANNED` dla integracji projektu).
+
+## 6. Procedura użycia
+
+### 6.1. Decyzja o użyciu Kaggle
+
+1. Opisz zadanie, dane wejściowe, oczekiwany artefakt i kryterium zakończenia.
+2. Sprawdź, czy lokalny backend nie spełnia wymagań. Nie przełączaj automatycznie na usługę zewnętrzną.
+3. Uzyskaj wyraźną zgodę na użycie Kaggle oraz na transfer konkretnych danych.
+4. Zweryfikuj bieżącą dostępność akceleratora, limity, miejsce, czas sesji, licencje i ewentualne koszty.
+5. Przygotuj manifest i notebook. Zapisz rzeczywiste wersje po uruchomieniu, a nie wersje założone.
+
+### 6.2. Przygotowanie notebooka
+
+1. Utwórz lub wybierz notebook przeznaczony dla zadania.
+2. Dołącz tylko zatwierdzone datasety, modele i pliki kodu.
+3. W ustawieniach ręcznie wybierz akcelerator i ustaw internet tylko wtedy, gdy jest potrzebny i dozwolony.
+4. Dodaj komórkę diagnostyczną, która zapisze wersję Pythona, wersje bibliotek, widoczność GPU i dostępne miejsce. Komórka jest planem do wykonania, nie wynikiem testu.
+5. Zainstaluj zależności zgodnie z oficjalną dokumentacją używanego projektu. Nie kopiuj bez weryfikacji lokalnego środowiska Windows.
+6. Uruchom najpierw minimalny test wejścia i urządzenia, a dopiero potem pełne zadanie.
+
+### 6.3. Wykonanie i artefakty
+
+1. Uruchom notebook ręcznie po zatwierdzeniu konfiguracji.
+2. Obserwuj log, zużycie pamięci, błędy pobierania i postęp zadania.
+3. Zapisuj checkpointy w osobnym katalogu od eksportu końcowego.
+4. Po zakończeniu sprawdź, czy wynik rzeczywiście istnieje, ma oczekiwany format i można go ponownie odczytać.
+5. Pobierz lub opublikuj artefakty wyłącznie zgodnie z decyzją użytkownika i zasadami danych.
+6. Zapisz identyfikator uruchomienia, manifest, log, wynik oraz informację o tym, czego nie udało się zweryfikować.
+
+Automatyczne wywoływanie notebooka i transfer wyników są niezaimplementowane (`PLANNED`).
+
+## 7. LoRA — cztery odrębne etapy
+
+Proces LoRA należy dokumentować i wykonywać jako osobne etapy. Nie traktuj przykładowych hiperparametrów z dokumentacji jako ustawień dla tego projektu.
+
+### 7.1. Przygotowanie danych
+
+Ustal pochodzenie i licencję danych, format plików, nazwy, opisy/captioning, filtrowanie, deduplikację, podział oraz manifest. Sprawdź, czy dane są czytelne dla wybranego skryptu i modelu. Wynikiem powinien być zatwierdzony zbiór danych oraz manifest plików. Liczba przykładów, rozdzielczość i sposób captioningu są zależne od modelu (`NEEDS_VERIFICATION`).
+
+### 7.2. Konfiguracja treningu
+
+Wybierz bazowy model, implementację LoRA, docelowe moduły, rozdzielczość, batch size, learning rate, liczbę kroków/epok, dtype, mixed precision, akumulację gradientu, seed i strategię pamięci. Diffusers opisuje LoRA jako adapter z mniejszą liczbą trenowanych parametrów oraz pokazuje parametry takie jak `rank`, `lora_alpha` i `target_modules` [3]. To źródło nie ustala wartości właściwych dla konkretnego modelu/GPU.
+
+Wszystkie ustawienia zależne od modelu, GPU, datasetu i implementacji oznacz jako `NEEDS_VERIFICATION`; propozycje bez testu jako `PLANNED`.
+
+### 7.3. Checkpointy
+
+Ustal osobno częstotliwość zapisu, nazewnictwo, katalog, retencję, wymagane miejsce i procedurę wznowienia. Checkpoint jest artefaktem pośrednim i nie jest automatycznie finalnym eksportem. Test wznowienia wymaga kontrolowanego przerwania, ponownego odczytu checkpointu i zapisanego logu (`NEEDS_VERIFICATION`).
+
+### 7.4. Eksport
+
+Ustal format końcowy, metadane, kompatybilność z docelowym loaderem, nazwę, lokalizację i test ponownego załadowania. Oficjalny przewodnik Diffusers opisuje zapis wag LoRA i późniejsze ładowanie adaptera, ale konkretna ścieżka i format zależą od używanego skryptu oraz modelu [3]. Nie podaję fikcyjnej komendy eksportu.
+
+**Status procesu:** `SOURCE_VERIFIED` dla ogólnych mechanizmów opisanych w [3]; konfiguracja tego zadania: `NEEDS_VERIFICATION`; pełny proces bez testu: `PLANNED`.
+
+## 8. Testowanie
+
+Nie wykonano testu Kaggle, notebooka, lokalnego Windows, ComfyUI ani GPU przy tworzeniu tego dokumentu. Nie ma podstaw do oznaczenia konfiguracji jako `LOCALLY_TESTED`.
+
+Procedura testowa do wykonania:
+
+1. **Test manifestu:** sprawdź, czy wszystkie wejścia, model, skrypt, katalogi i kryterium zakończenia są jawne.
+2. **Test sesji:** potwierdź wybrany akcelerator, internet, wersje runtime i dostępne zasoby.
+3. **Test GPU:** uruchom minimalną operację na GPU i zachowaj rzeczywisty log; nie wystarczy samo wyświetlenie urządzenia.
+4. **Test danych:** odczytaj reprezentatywny fragment danych i potwierdź zgodność z loaderem.
+5. **Test workflow/treningu:** wykonaj małe, kontrolowane zadanie z logiem pamięci i wynikiem.
+6. **Test checkpointu:** sprawdź zapis, przerwanie, wznowienie i odczyt checkpointu.
+7. **Test eksportu:** potwierdź istnienie artefaktu, format, metadane i ponowne załadowanie.
+8. **Test odbioru:** sprawdź kompletność pobranego lub udostępnionego wyniku.
+
+Raport testu powinien zawierać datę, identyfikator notebooka i uruchomienia, konto/projekt bez sekretów, GPU, rzeczywiste wersje, manifest, komendę lub komórki, log, ścieżki artefaktów i wynik. Dopiero taki raport może nadać konkretnej procedurze status `LOCALLY_TESTED`; brak raportu oznacza `NEEDS_VERIFICATION`.
+
+## 9. Diagnostyka
+
+| Objaw | Sprawdzenia | Ostrożne działanie |
+|---|---|---|
+| Akcelerator nie jest dostępny | ustawienia sesji, kolejka, uprawnienia, bieżąca dostępność | zatrzymaj zadanie i zweryfikuj sesję; nie zakładaj automatycznej zamiany GPU |
+| GPU jest widoczne, ale zadanie używa CPU | właściwy interpreter, runtime, urządzenie wybrane przez skrypt, log | zachowaj wersje i log; nie instaluj losowych buildów |
+| OOM VRAM | model, rozdzielczość, batch size, dtype, inne procesy, akumulacja gradientu | zmieniaj jeden parametr po zatwierdzeniu; ustawienia są `NEEDS_VERIFICATION` |
+| OOM RAM lub brak miejsca | rozmiar danych, cache, checkpointy, eksport, wolne miejsce | ogranicz cache/retencję dopiero po zabezpieczeniu artefaktów |
+| Nie można pobrać zależności | internet, wersja pakietu, ograniczenia notebooka, log instalacji | użyj jawnie przypiętej i zatwierdzonej procedury; nie zapisuj sekretów |
+| Model lub dane nie ładują się | źródło, licencja, ścieżka, format, uprawnienia | sprawdź manifest i zgodność loadera; nie pobieraj nieznanych plików |
+| Trening kończy się bez wyniku | log, katalog wyjściowy, przerwanie, miejsce, uprawnienia | nie deklaruj sukcesu bez artefaktu i testu odczytu |
+| Checkpoint nie wznawia pracy | zgodność wersji, kompletność plików, konfiguracja, katalog | zachowaj checkpoint i pełny błąd; nie nadpisuj jedynej kopii |
+| Kaggle zwraca limit lub błąd 429 | bieżące limity i częstotliwość żądań | odczekaj i sprawdź logikę wywołań; automatyczne retry nie jest tu zaimplementowane [2] |
+
+## 10. Ograniczenia i ryzyka
+
+- Dostępność, typ GPU, czas sesji, limity, miejsce i polityka Kaggle mogą się zmieniać; trzeba je sprawdzić dla konkretnego uruchomienia.
+- Kaggle nie jest gwarantowanym, automatycznym ani domyślnie bezpłatnym backendem.
+- Transfer danych do usługi zewnętrznej może naruszać prywatność, licencję lub zasady projektu; wymaga osobnej zgody.
+- Notebook jest środowiskiem zdalnym i nie ma dostępu do ścieżki `E:\AI AGENTS\ComfyUI_windows_portable`.
+- Checkpoint, eksport i wynik workflow są odrębnymi artefaktami i muszą być sprawdzone osobno.
+- Wartości hiperparametrów LoRA nie są uniwersalne. Zależą od modelu bazowego, danych, implementacji i GPU.
+- Brak reprodukowalnego raportu oznacza brak statusu `LOCALLY_TESTED`.
+- Automatyzacja API, harmonogram i fallback do Kaggle są poza zakresem i mają status `PLANNED`.
+
+## 11. Statusy informacji
+
+- `SOURCE_VERIFIED` — informacja potwierdzona w przywołanym źródle oficjalnym; nie oznacza, że została uruchomiona w tym projekcie.
+- `REPORTED` — informacja przyjęta z `AGENTS.md`, `README.md` lub istniejącej dokumentacji repozytorium, bez niezależnego testu w bieżącym środowisku.
+- `NEEDS_VERIFICATION` — informacja zależna od konkretnego konta, notebooka, sprzętu, instalacji, modelu, danych, usługi albo wyniku testu.
+- `PLANNED` — zamierzona funkcja, szablon lub procedura, której implementacji albo dostępności nie potwierdzono.
+- `LOCALLY_TESTED` — rzeczywisty, odtwarzalny test wykonany w docelowym lokalnym środowisku, z datą, logiem, parametrami i artefaktem. Ten dokument nie zawiera pozycji o tym statusie.
+
+## 12. Źródła
+
+- `REPORTED`: `AGENTS.md` w repozytorium AI-KNOWLEDGE-BASE — priorytet lokalnego GPU, ścieżka Windows/ComfyUI, zakaz automatycznego fallbacku i wymagania testowania.
+- `REPORTED`: `README.md` w repozytorium AI-KNOWLEDGE-BASE — zakres GPU Backend, Kaggle jako opcjonalny backend i model zatwierdzania zmian.
+- `SOURCE_VERIFIED`: Kaggle, *Notebooks Documentation* — notebooki, dane wejściowe, ustawienia sesji, akceleratory, środowisko i wyniki: [1](https://www.kaggle.com/docs/notebooks).
+- `SOURCE_VERIFIED`: Kaggle, *Public API* — CLI, `kagglehub`, uwierzytelnienie i limity API: [2](https://www.kaggle.com/docs/api).
+- `SOURCE_VERIFIED`: ComfyUI, oficjalne repozytorium — instalacja, Windows Portable i modelowe ścieżki plików: [3](https://github.com/comfyanonymous/ComfyUI).
+- `SOURCE_VERIFIED`: Hugging Face Diffusers, *LoRA* — adaptery LoRA, parametry konfiguracji, checkpointy i ładowanie wag: [4](https://huggingface.co/docs/diffusers/training/lora).
+
+Przyszłe skrypty, notebooki, workflow, konfiguracje i ustawienia modelowe muszą mieć własne źródło oficjalne albo status `PLANNED`; nie wolno przedstawiać szablonu jako istniejącego artefaktu.
